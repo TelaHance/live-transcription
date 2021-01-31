@@ -47,35 +47,27 @@ const mediaws = new WebSocketServer({
 
 function handleRequest(request, response){
   try {
+    fs.writeFileSync("request.json", JSON.stringify(request));
     dispatcher.dispatch(request, response);
   } catch(err) {
     console.error(err);
   }
 }
 
-dispatcher.onPost('/twiml', function(req,res) {
-  log('POST TwiML');
-
-  var filePath = path.join(__dirname+'/templates', 'streams.xml');
-  var stat = fs.statSync(filePath);
-
-  res.writeHead(200, {
-    'Content-Type': 'text/xml',
-    'Content-Length': stat.size
-  });
-
-  var readStream = fs.createReadStream(filePath);
-  readStream.pipe(res);
-});
-
 mediaws.on('connect', function(connection) {
   log('Media WS: Connection accepted');
   new MediaStreamHandler(connection);
 });
 
+mediaws.on('close', function close() {
+  log('Media WS: Connection closed');
+  wsserver.close();
+});
+
 class MediaStreamHandler {
     constructor(connection) {
-    this.metaData = null;
+    this.callSid = null;
+    this.consultId = null;
     this.trackHandlers = {};
     connection.on('message', this.processMessage.bind(this));
     connection.on('close', this.close.bind(this));
@@ -85,7 +77,7 @@ class MediaStreamHandler {
     if (message.type === 'utf8') {
       const data = JSON.parse(message.utf8Data);
       if (data.event === "start") {
-        this.metaData = data.start;
+        this.callSid = data.start.callSid;
       }
       if (data.event !== "media") {
         return;
