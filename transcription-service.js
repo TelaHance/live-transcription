@@ -1,7 +1,6 @@
 const EventEmitter = require('events');
 const Speech = require('@google-cloud/speech');
 const speech = new Speech.SpeechClient();
-var aws = require('aws-sdk');
 
 class TranscriptionService extends EventEmitter {
   constructor() {
