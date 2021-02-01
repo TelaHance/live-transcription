@@ -11,6 +11,10 @@ const dispatcher = new HttpDispatcher();
 const wsserver = http.createServer(handleRequest);
 const aws = require('@aws-sdk/client-dynamodb');
 
+const wsserver = http.createServer(function (request, response) {
+  log('Received request for ' + request.url);
+});
+
 const HTTP_SERVER_PORT = 8080;
 const dynamoDb = new aws.DynamoDB.DocumentClient();
 
@@ -73,9 +77,15 @@ mediaws.on('connect', function (connection) {
   new MediaStreamHandler(connection);
 });
 
+mediaws.on('close', function close() {
+  log('Media WS: Connection closed');
+  wsserver.close();
+});
+
 class MediaStreamHandler {
-  constructor(connection) {
-    this.metaData = null;
+    constructor(connection) {
+    this.callSid = null;
+    this.consultId = null;
     this.trackHandlers = {};
     connection.on('message', this.processMessage.bind(this));
     connection.on('close', this.close.bind(this));
@@ -84,8 +94,8 @@ class MediaStreamHandler {
   processMessage(message) {
     if (message.type === 'utf8') {
       const data = JSON.parse(message.utf8Data);
-      if (data.event === 'start') {
-        this.metaData = data.start;
+      if (data.event === "start") {
+        this.callSid = data.start.callSid;
         this.consultId = data.start.customParameters.consult_id;
       }
       if (data.event !== 'media') {

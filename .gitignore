@@ -14,8 +14,6 @@ nosetests.xml
 coverage.xml
 *,cover
 .hypothesis/
-.env
-google_creds.json
 .idea/
 
 # Translations
