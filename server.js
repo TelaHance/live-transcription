@@ -8,11 +8,13 @@ const HttpDispatcher = require('httpdispatcher');
 const WebSocketServer = require('websocket').server;
 const TranscriptionService = require('./transcription-service');
 const dispatcher = new HttpDispatcher();
-const wsserver = http.createServer(handleRequest);
 const aws = require("@aws-sdk/client-dynamodb");
 
+const wsserver = http.createServer(function (request, response) {
+  log('Received request for ' + request.url);
+});
+
 const HTTP_SERVER_PORT = 8080;
-// const docClient = new aws.DynamoDB.DocumentClient();
 
 function log(message, ...args) {
   console.log(new Date(), message, ...args);
@@ -22,37 +24,6 @@ const mediaws = new WebSocketServer({
   httpServer: wsserver,
   autoAcceptConnections: true,
 });
-
-// function insertDB(){
-//   const params = {
-//     TableName: "MYTABLE",
-//     Key: {
-//       "id": "1"
-//     },
-//     UpdateExpression: "set variable1 = :x, #MyVariable = :y",
-//     ExpressionAttributeNames: {
-//       "#MyVariable": "variable23"
-//     },
-//     ExpressionAttributeValues: {
-//       ":x": "hello2",
-//       ":y": "dog"
-//     }
-//   };
-//
-//   docClient.update(params, function(err, data) {
-//     if (err) console.log(err);
-//     else console.log(data);
-//   });
-// }
-
-function handleRequest(request, response){
-  try {
-    fs.writeFileSync("request.json", JSON.stringify(request));
-    dispatcher.dispatch(request, response);
-  } catch(err) {
-    console.error(err);
-  }
-}
 
 mediaws.on('connect', function(connection) {
   log('Media WS: Connection accepted');
@@ -78,6 +49,7 @@ class MediaStreamHandler {
       const data = JSON.parse(message.utf8Data);
       if (data.event === "start") {
         this.callSid = data.start.callSid;
+        this.consultId = data.start.customParameters.consult_id;
       }
       if (data.event !== "media") {
         return;
