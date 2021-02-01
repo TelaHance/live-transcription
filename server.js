@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 require('dotenv').load();
 
 const fs = require('fs');
@@ -9,10 +9,10 @@ const WebSocketServer = require('websocket').server;
 const TranscriptionService = require('./transcription-service');
 const dispatcher = new HttpDispatcher();
 const wsserver = http.createServer(handleRequest);
-const aws = require("@aws-sdk/client-dynamodb");
+const aws = require('@aws-sdk/client-dynamodb');
 
 const HTTP_SERVER_PORT = 8080;
-// const docClient = new aws.DynamoDB.DocumentClient();
+const dynamoDb = new aws.DynamoDB.DocumentClient();
 
 function log(message, ...args) {
   console.log(new Date(), message, ...args);
@@ -45,49 +45,49 @@ const mediaws = new WebSocketServer({
 //   });
 // }
 
-function handleRequest(request, response){
+function handleRequest(request, response) {
   try {
     dispatcher.dispatch(request, response);
-  } catch(err) {
+  } catch (err) {
     console.error(err);
   }
 }
 
-dispatcher.onPost('/twiml', function(req,res) {
+dispatcher.onPost('/twiml', function (req, res) {
   log('POST TwiML');
 
-  var filePath = path.join(__dirname+'/templates', 'streams.xml');
+  var filePath = path.join(__dirname + '/templates', 'streams.xml');
   var stat = fs.statSync(filePath);
 
   res.writeHead(200, {
     'Content-Type': 'text/xml',
-    'Content-Length': stat.size
+    'Content-Length': stat.size,
   });
 
   var readStream = fs.createReadStream(filePath);
   readStream.pipe(res);
 });
 
-mediaws.on('connect', function(connection) {
+mediaws.on('connect', function (connection) {
   log('Media WS: Connection accepted');
   new MediaStreamHandler(connection);
 });
 
 class MediaStreamHandler {
-    constructor(connection) {
+  constructor(connection) {
     this.metaData = null;
     this.trackHandlers = {};
     connection.on('message', this.processMessage.bind(this));
     connection.on('close', this.close.bind(this));
   }
 
-  processMessage(message){
+  processMessage(message) {
     if (message.type === 'utf8') {
       const data = JSON.parse(message.utf8Data);
-      if (data.event === "start") {
+      if (data.event === 'start') {
         this.metaData = data.start;
       }
-      if (data.event !== "media") {
+      if (data.event !== 'media') {
         return;
       }
       const track = data.media.track;
@@ -104,7 +104,7 @@ class MediaStreamHandler {
     }
   }
 
-  close(){
+  close() {
     log('Media WS: closed');
 
     for (let track of Object.keys(this.trackHandlers)) {
@@ -114,6 +114,6 @@ class MediaStreamHandler {
   }
 }
 
-wsserver.listen(HTTP_SERVER_PORT, function(){
-  console.log("Server listening on: http://localhost:%s", HTTP_SERVER_PORT);
+wsserver.listen(HTTP_SERVER_PORT, function () {
+  console.log('Server listening on: http://localhost:%s', HTTP_SERVER_PORT);
 });
