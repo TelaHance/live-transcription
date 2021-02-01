@@ -57,7 +57,7 @@ class TranscriptionService extends EventEmitter {
           if (result === undefined || result.alternatives[0] === undefined) {
             return;
           }
-          this.emit('transcription', result.alternatives[0]);
+          this.emit('transcription', JSON.stringify(result.alternatives[0]));
         });
     }
 
