@@ -86,6 +86,7 @@ class MediaStreamHandler {
       const data = JSON.parse(message.utf8Data);
       if (data.event === 'start') {
         this.metaData = data.start;
+        this.consultId = data.start.customParameters.consult_id;
       }
       if (data.event !== 'media') {
         return;
