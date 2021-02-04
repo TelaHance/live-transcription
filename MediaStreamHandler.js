@@ -12,7 +12,7 @@ class MediaStreamHandler {
 
   processMessage(message) {
     if (message.type !== 'utf8') {
-      log(`Media WS: ${message.type} message received (not supported)`);
+      console.log(`Media WS: ${message.type} message received (not supported)`);
       return;
     }
 
@@ -27,7 +27,7 @@ class MediaStreamHandler {
     if (this.trackHandlers[track] === undefined) {
       const service = new TranscriptionService();
       service.on('transcription', (transcription) => {
-        log(`Transcription (${track}): ${transcription}`);
+        console.log(`Transcription (${track}): ${transcription}`);
       });
       this.trackHandlers[track] = service;
     }

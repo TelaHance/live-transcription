@@ -21,14 +21,10 @@ const receieveParams = {
   WaitTimeSeconds: 0,
 };
 
-function log(message, ...args) {
-  console.log(new Date(), message, ...args);
-}
-
 async function run() {
   const sqs = new SQSClient({ region: REGION });
   const data = await sqs.send(new ReceiveMessageCommand(receieveParams));
-  log(data);
+  console.log(data);
 
   const wsserver = http.createServer();
 
@@ -38,12 +34,12 @@ async function run() {
   });
 
   mediaws.on('connect', function (connection) {
-    log('Media WS: Connection accepted');
+    console.log('Media WS: Connection accepted');
     new MediaStreamHandler(connection);
   });
 
   mediaws.on('close', function close() {
-    log('Media WS: Connection closed');
+    console.log('Media WS: Connection closed');
     wsserver.close();
   });
 
