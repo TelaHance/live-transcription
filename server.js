@@ -3,74 +3,54 @@ require('dotenv').load();
 
 const http = require('http');
 const WebSocketServer = require('websocket').server;
-const TranscriptionService = require('./transcription-service');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const {
+  SQSClient,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+} = require('@aws-sdk/client-sqs');
+const MediaStreamHandler = require('./MediaStreamHandler');
 
-const HTTP_SERVER_PORT = 8080;
+const REGION = 'us-west-2';
+const QUEUE_URL =
+  'https://sqs.us-west-2.amazonaws.com/113657999858/WebsocketQueue.fifo';
 
-const wsserver = http.createServer();
-const dynamoDb = new DynamoDBClient();
+const receieveParams = {
+  MaxNumberOfMessages: 1,
+  QueueUrl: QUEUE_URL,
+  VisibilityTimeout: 20,
+  WaitTimeSeconds: 0,
+};
 
 function log(message, ...args) {
   console.log(new Date(), message, ...args);
 }
 
-const mediaws = new WebSocketServer({
-  httpServer: wsserver,
-  autoAcceptConnections: true,
-});
+async function run() {
+  const sqs = new SQSClient({ region: REGION });
+  const data = await sqs.send(new ReceiveMessageCommand(receieveParams));
+  log(data);
 
-mediaws.on('connect', function (connection) {
-  log('Media WS: Connection accepted');
-  new MediaStreamHandler(connection);
-});
+  const wsserver = http.createServer();
 
-mediaws.on('close', function close() {
-  log('Media WS: Connection closed');
-  wsserver.close();
-});
+  const mediaws = new WebSocketServer({
+    httpServer: wsserver,
+    autoAcceptConnections: true,
+  });
 
-class MediaStreamHandler {
-  constructor(connection) {
-    this.callSid = null;
-    this.consultId = null;
-    this.trackHandlers = {};
-    connection.on('message', this.processMessage.bind(this));
-    connection.on('close', this.close.bind(this));
-  }
+  mediaws.on('connect', function (connection) {
+    log('Media WS: Connection accepted');
+    new MediaStreamHandler(connection);
+  });
 
-  processMessage(message) {
-    if (message.type !== 'utf8') {
-      log(`Media WS: ${message.type} message received (not supported)`);
-      return;
-    }
+  mediaws.on('close', function close() {
+    log('Media WS: Connection closed');
+    wsserver.close();
+  });
 
-    const data = JSON.parse(message.utf8Data);
-    if (data.event === 'start') {
-      this.callSid = data.start.callSid;
-      this.consultId = data.start.customParameters.consult_id;
-    }
-    if (data.event !== 'media') return;
-
-    const { track } = data.media;
-    if (this.trackHandlers[track] === undefined) {
-      const service = new TranscriptionService();
-      service.on('transcription', (transcription) => {
-        log(`Transcription (${track}): ${transcription}`);
-      });
-      this.trackHandlers[track] = service;
-    }
-    this.trackHandlers[track].send(data.media.payload);
-  }
-
-  close() {
-    for (let track of Object.keys(this.trackHandlers)) {
-      log(`Closing ${track} handler`);
-      this.trackHandlers[track].close();
-    }
-  }
+  const HTTP_SERVER_PORT = 80;
+  wsserver.listen(HTTP_SERVER_PORT, () =>
+    console.log(`Server listening on: http://localhost:${HTTP_SERVER_PORT}`)
+  );
 }
 
-wsserver.listen(HTTP_SERVER_PORT, () =>
-  console.log(`Server listening on: http://localhost:${HTTP_SERVER_PORT}`)
-);
+run();
