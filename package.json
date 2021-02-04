@@ -5,9 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "deploy": "yarn build && yarn aws-tag && yarn login && yarn aws-push",
+    "deploy": "yarn build && yarn aws-tag && yarn aws-login && yarn aws-push",
     "build": "docker build -t live-transcription .",
-    "login": "aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 113657999858.dkr.ecr.us-west-2.amazonaws.com/live-transcription-repo",
+    "aws-login": "aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 113657999858.dkr.ecr.us-west-2.amazonaws.com/live-transcription-repo",
     "aws-tag": "docker tag live-transcription:latest 113657999858.dkr.ecr.us-west-2.amazonaws.com/live-transcription-repo:latest",
     "aws-push": "docker push 113657999858.dkr.ecr.us-west-2.amazonaws.com/live-transcription-repo:latest"
   },
