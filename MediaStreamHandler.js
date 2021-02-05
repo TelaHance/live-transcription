@@ -34,9 +34,14 @@ class MediaStreamHandler {
     this.trackHandlers[track].send(data.media.payload);
   }
 
+  async update() {
+    // Access DynamoDB and update consult
+    // Send updated new back to client
+  }
+
   close() {
     for (let track of Object.keys(this.trackHandlers)) {
-      log(`Closing ${track} handler`);
+      console.log(`Closing ${track} handler`);
       this.trackHandlers[track].close();
     }
   }

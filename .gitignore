@@ -4,6 +4,8 @@ yarn.lock
 google_creds.json
 test/
 
+.env
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
