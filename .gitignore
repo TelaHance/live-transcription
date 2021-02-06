@@ -3,6 +3,9 @@ package-lock.json
 yarn.lock
 google_creds.json
 test/
+keys/
+
+.env
 
 # Unit test / coverage reports
 htmlcov/
@@ -14,8 +17,6 @@ nosetests.xml
 coverage.xml
 *,cover
 .hypothesis/
-.env
-google_creds.json
 .idea/
 
 # Translations

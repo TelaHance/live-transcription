@@ -1,119 +1,59 @@
-"use strict";
+'use strict';
 require('dotenv').load();
 
 const fs = require('fs');
-const path = require('path');
-const http = require('http');
-const HttpDispatcher = require('httpdispatcher');
+const https = require('https');
+const fetch = require('isomorphic-unfetch');
 const WebSocketServer = require('websocket').server;
-const TranscriptionService = require('./transcription-service');
-const dispatcher = new HttpDispatcher();
-const wsserver = http.createServer(handleRequest);
-const aws = require("@aws-sdk/client-dynamodb");
+const {
+  SQSClient,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+} = require('@aws-sdk/client-sqs');
+const MediaStreamHandler = require('./MediaStreamHandler');
 
-const HTTP_SERVER_PORT = 8080;
-// const docClient = new aws.DynamoDB.DocumentClient();
+const REGION = 'us-west-2';
+const QUEUE_URL =
+  'https://sqs.us-west-2.amazonaws.com/113657999858/WebsocketQueue.fifo';
 
-function log(message, ...args) {
-  console.log(new Date(), message, ...args);
-}
+const receieveParams = {
+  MaxNumberOfMessages: 1,
+  QueueUrl: QUEUE_URL,
+  VisibilityTimeout: 20,
+  WaitTimeSeconds: 0,
+};
 
-const mediaws = new WebSocketServer({
-  httpServer: wsserver,
-  autoAcceptConnections: true,
-});
+async function run() {
+  const sqs = new SQSClient({ region: REGION });
+  const reaponse = await sqs.send(new ReceiveMessageCommand(receieveParams));
+  const data = JSON.parse(response);
+  const { connectionId } = data.Messages[0].Body;
+  console.log(connectionId);
 
-// function insertDB(){
-//   const params = {
-//     TableName: "MYTABLE",
-//     Key: {
-//       "id": "1"
-//     },
-//     UpdateExpression: "set variable1 = :x, #MyVariable = :y",
-//     ExpressionAttributeNames: {
-//       "#MyVariable": "variable23"
-//     },
-//     ExpressionAttributeValues: {
-//       ":x": "hello2",
-//       ":y": "dog"
-//     }
-//   };
-//
-//   docClient.update(params, function(err, data) {
-//     if (err) console.log(err);
-//     else console.log(data);
-//   });
-// }
-
-function handleRequest(request, response){
-  try {
-    dispatcher.dispatch(request, response);
-  } catch(err) {
-    console.error(err);
-  }
-}
-
-dispatcher.onPost('/twiml', function(req,res) {
-  log('POST TwiML');
-
-  var filePath = path.join(__dirname+'/templates', 'streams.xml');
-  var stat = fs.statSync(filePath);
-
-  res.writeHead(200, {
-    'Content-Type': 'text/xml',
-    'Content-Length': stat.size
+  const wsserver = https.createServer({
+    key: fs.readFileSync('./keys/privkey.pem'),
+    cert: fs.readFileSync('./keys/cert.pem'),
   });
 
-  var readStream = fs.createReadStream(filePath);
-  readStream.pipe(res);
-});
+  const mediaws = new WebSocketServer({
+    httpServer: wsserver,
+    autoAcceptConnections: true,
+  });
 
-mediaws.on('connect', function(connection) {
-  log('Media WS: Connection accepted');
-  new MediaStreamHandler(connection);
-});
+  mediaws.on('connect', function (connection) {
+    console.log('Media WS: Connection accepted');
+    new MediaStreamHandler(connection);
+  });
 
-class MediaStreamHandler {
-    constructor(connection) {
-    this.metaData = null;
-    this.trackHandlers = {};
-    connection.on('message', this.processMessage.bind(this));
-    connection.on('close', this.close.bind(this));
-  }
+  mediaws.on('close', function close() {
+    console.log('Media WS: Connection closed');
+    wsserver.close();
+  });
 
-  processMessage(message){
-    if (message.type === 'utf8') {
-      const data = JSON.parse(message.utf8Data);
-      if (data.event === "start") {
-        this.metaData = data.start;
-      }
-      if (data.event !== "media") {
-        return;
-      }
-      const track = data.media.track;
-      if (this.trackHandlers[track] === undefined) {
-        const service = new TranscriptionService();
-        service.on('transcription', (transcription) => {
-          log(`Transcription (${track}): ${transcription}`);
-        });
-        this.trackHandlers[track] = service;
-      }
-      this.trackHandlers[track].send(data.media.payload);
-    } else if (message.type === 'binary') {
-      log('Media WS: binary message received (not supported)');
-    }
-  }
-
-  close(){
-    log('Media WS: closed');
-
-    for (let track of Object.keys(this.trackHandlers)) {
-      log(`Closing ${track} handler`);
-      this.trackHandlers[track].close();
-    }
-  }
+  const HTTP_SERVER_PORT = 443;
+  wsserver.listen(HTTP_SERVER_PORT, () =>
+    console.log(`Server listening on: http://localhost:${HTTP_SERVER_PORT}`)
+  );
 }
 
-wsserver.listen(HTTP_SERVER_PORT, function(){
-  console.log("Server listening on: http://localhost:%s", HTTP_SERVER_PORT);
-});
+run();

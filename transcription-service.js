@@ -1,7 +1,6 @@
 const EventEmitter = require('events');
 const Speech = require('@google-cloud/speech');
 const speech = new Speech.SpeechClient();
-var aws = require('aws-sdk');
 
 class TranscriptionService extends EventEmitter {
   constructor() {
@@ -38,21 +37,22 @@ class TranscriptionService extends EventEmitter {
 
       var request = {
         config: {
-          encoding: "MULAW",
+          encoding: 'MULAW',
           sampleRateHertz: 8000,
-          languageCode: "en-US",
+          languageCode: 'en-US',
           audioChannelCount: 2,
           enableSeparateRecognitionPerChannel: true,
-          enableWordTimeOffsets: true
+          enableWordTimeOffsets: true,
+          enableAutomaticPunctuation: true
         },
-        interimResults: true
+        interimResults: true,
       };
 
       this.streamCreatedAt = new Date();
       this.stream = speech
         .streamingRecognize(request)
-        .on("error", console.error)
-        .on("data", (data) => {
+        .on('error', console.error)
+        .on('data', (data) => {
           const result = data.results[0];
           if (result === undefined || result.alternatives[0] === undefined) {
             return;
@@ -62,6 +62,20 @@ class TranscriptionService extends EventEmitter {
     }
 
     return this.stream;
+  }
+
+  async parse(text, age) {
+    const response = await fetch('https://api.infermedica.com/v3/parse', {
+      method: 'POST',
+      headers: {
+        'App-Id': env.INFERMEDICA_APP_ID,
+        'App-Key': env.INFERMEDICA_APP_KEY,
+      },
+      body: JSON.stringify({
+        age: { value: age },
+        text,
+      }),
+    });
   }
 }
 
