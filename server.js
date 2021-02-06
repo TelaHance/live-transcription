@@ -24,11 +24,11 @@ const receieveParams = {
 };
 
 async function run() {
-  const sqs = new SQSClient({ region: REGION });
-  const reaponse = await sqs.send(new ReceiveMessageCommand(receieveParams));
-  const data = JSON.parse(response);
-  const { connectionId } = data.Messages[0].Body;
-  console.log(connectionId);
+  // const sqs = new SQSClient({ region: REGION });
+  // const response = await sqs.send(new ReceiveMessageCommand(receieveParams));
+  // const data = JSON.parse(response);
+  // const { connectionId } = data.Messages[0].Body;
+  // console.log(connectionId);
 
   const wsserver = https.createServer({
     key: fs.readFileSync('./keys/privkey.pem'),
