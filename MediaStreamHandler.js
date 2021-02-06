@@ -41,7 +41,7 @@ class MediaStreamHandler {
     return {
       start: currentWord.startTime.seconds*1000+currentWord.startTime.nanos/1000000,
       end: currentWord.startTime.seconds*1000+currentWord.startTime.nanos/1000000,
-      text: currentWord.word.trim(),
+      text: currentWord.word.trim() + ' ',
     };
   }
   processMessage(message) {
