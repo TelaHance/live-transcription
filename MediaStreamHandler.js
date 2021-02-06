@@ -52,7 +52,7 @@ class MediaStreamHandler {
       const service = new TranscriptionService();
       service.on('transcription', (transcription) => {
         transcription = JSON.parse(transcription);
-        if(transcription.words && transcription.words.length !== 0){
+        if(transcription.words.length > 0){
           const newWords = [];
           transcription.words.forEach((word) =>{
             newWords.push(this.normalizeWord(word));
