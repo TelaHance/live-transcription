@@ -1,8 +1,33 @@
-const AWS = require("aws-sdk");
+const { DynamoDB} = require("@aws-sdk/client-dynamodb");
+const { marshall, unmarshall} = require("@aws-sdk/util-dynamodb");
 const TranscriptionService = require('./transcription-service');
-const dynamoDb = new AWS.DynamoDB.DocumentClient({
-  region: "us-west-2",
-});
+const client = new DynamoDB({ region: "us-west-2" });
+
+async function updateDatabase(blocks, consultId){
+  const scanParams = {
+    TableName: "consults",
+    ExpressionAttributeValues: marshall({
+      ":c" : consultId,
+    }),
+    KeyConditionExpression: "consult_id = :c",
+    ProjectionExpression:"start_time",
+  };
+  const data = await client.query(scanParams);
+  const updateParams = {
+    TableName: "consults",
+    Key: marshall({
+      primaryKey: consultId,
+      secondaryKey: data.Items[0].start_time.N,
+    }),
+    UpdateExpression: "set transcript = :t",
+    ExpressionAttributeValues: marshall({
+      ':t': blocks,
+    }),
+    ReturnValues: "UPDATED_NEW",
+  };
+  await client.updateItem(updateParams);
+}
+
 class MediaStreamHandler {
   constructor(connection) {
     this.callSid = null;
@@ -18,21 +43,6 @@ class MediaStreamHandler {
       end: currentWord.startTime.seconds*1000+currentWord.startTime.nanos/1000000,
       text: currentWord.word.trim(),
     };
-  }
-  async updateDatabase(blocks){
-    const updateParams = {
-      TableName: "consults",
-      Key: this.consultId,
-      ExpressionAttributeNames: {
-        '#transcript': "transcript",
-      },
-      ReturnValues: 'UPDATED_NEW',
-    };
-    updateParams.ExpressionAttributeValues = {
-      ':t': blocks,
-    };
-    updateParams.UpdateExpression = 'set #transcript = :t';
-    await dynamoDb.update(updateParams).promise();
   }
   processMessage(message) {
     if (message.type !== 'utf8') {
@@ -52,7 +62,7 @@ class MediaStreamHandler {
       const service = new TranscriptionService();
       service.on('transcription', (transcription) => {
         transcription = JSON.parse(transcription);
-        if(transcription.words && transcription.words.length !== 0){
+        if(transcription.words.length > 0){
           const newWords = [];
           transcription.words.forEach((word) =>{
             newWords.push(this.normalizeWord(word));
@@ -66,7 +76,7 @@ class MediaStreamHandler {
           };
           this.blocks.push(block);
           this.blocks.sort((a,b)=>(a.start > b.start) ? 1 : -1);
-          this.updateDatabase(this.blocks).then(r => console.log(r));
+          updateDatabase(this.blocks, this.consultId).then(r => console.log(r));
         }
       });
       this.trackHandlers[track] = service;
