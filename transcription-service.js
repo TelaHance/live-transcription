@@ -1,9 +1,6 @@
 const EventEmitter = require('events');
 const Speech = require('@google-cloud/speech');
 const speech = new Speech.SpeechClient();
-// const fs = require('fs');
-
-// const responses = [];
 
 class TranscriptionService extends EventEmitter {
   constructor() {
@@ -20,7 +17,6 @@ class TranscriptionService extends EventEmitter {
     if (this.stream) {
       this.stream.destroy();
     }
-    // fs.writeFileSync('example2.json', JSON.stringify(responses));
   }
 
   newStreamRequired() {
@@ -61,7 +57,6 @@ class TranscriptionService extends EventEmitter {
           if (result === undefined || result.alternatives[0] === undefined) {
             return;
           }
-          // responses.push(data);s
           this.emit('transcription', JSON.stringify(result.alternatives[0]));
         });
     }
