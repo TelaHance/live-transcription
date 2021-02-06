@@ -1,7 +1,8 @@
 'use strict';
 require('dotenv').load();
 
-const http = require('http');
+const fs = require('fs');
+const https = require('https');
 const fetch = require('isomorphic-unfetch');
 const WebSocketServer = require('websocket').server;
 const {
@@ -24,11 +25,15 @@ const receieveParams = {
 
 async function run() {
   const sqs = new SQSClient({ region: REGION });
-  const data = await sqs.send(new ReceiveMessageCommand(receieveParams));
-  const { connectionId } = JSON.parse(data.Body);
+  const reaponse = await sqs.send(new ReceiveMessageCommand(receieveParams));
+  const data = JSON.parse(response);
+  const { connectionId } = data.Messages[0].Body;
   console.log(connectionId);
 
-  const wsserver = http.createServer();
+  const wsserver = https.createServer({
+    key: fs.readFileSync('./keys/privkey.pem'),
+    cert: fs.readFileSync('./keys/cert.pem'),
+  });
 
   const mediaws = new WebSocketServer({
     httpServer: wsserver,
@@ -45,7 +50,7 @@ async function run() {
     wsserver.close();
   });
 
-  const HTTP_SERVER_PORT = 8080;
+  const HTTP_SERVER_PORT = 443;
   wsserver.listen(HTTP_SERVER_PORT, () =>
     console.log(`Server listening on: http://localhost:${HTTP_SERVER_PORT}`)
   );
