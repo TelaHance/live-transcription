@@ -64,19 +64,7 @@ class TranscriptionService extends EventEmitter {
     return this.stream;
   }
 
-  async parse(text, age) {
-    const response = await fetch('https://api.infermedica.com/v3/parse', {
-      method: 'POST',
-      headers: {
-        'App-Id': env.INFERMEDICA_APP_ID,
-        'App-Key': env.INFERMEDICA_APP_KEY,
-      },
-      body: JSON.stringify({
-        age: { value: age },
-        text,
-      }),
-    });
-  }
+
 }
 
 module.exports = TranscriptionService;
