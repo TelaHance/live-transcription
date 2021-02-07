@@ -43,7 +43,7 @@ class TranscriptionService extends EventEmitter {
           audioChannelCount: 2,
           enableSeparateRecognitionPerChannel: true,
           enableWordTimeOffsets: true,
-          enableAutomaticPunctuation: true
+          enableAutomaticPunctuation: true,
         },
         interimResults: true,
       };
@@ -63,8 +63,6 @@ class TranscriptionService extends EventEmitter {
 
     return this.stream;
   }
-
-
 }
 
 module.exports = TranscriptionService;
