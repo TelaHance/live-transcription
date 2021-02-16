@@ -3,6 +3,7 @@ const { DynamoDB } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const {
   ApiGatewayManagementApiClient,
+  DeleteConnectionCommand,
   PostToConnectionCommand,
 } = require('@aws-sdk/client-apigatewaymanagementapi');
 const TranscriptionService = require('./transcription-service');
@@ -48,11 +49,12 @@ async function updateDynamoDB(consultId, blocks, symptoms) {
 }
 
 async function updateClient(connectionId, idx, block, symptoms) {
-  const command = new PostToConnectionCommand({
-    ConnectionId: connectionId,
-    Data: JSON.stringify({ idx, block, symptoms }),
-  });
-  return websocket.send(command);
+  return websocket.send(
+    new PostToConnectionCommand({
+      ConnectionId: connectionId,
+      Data: JSON.stringify({ idx, block, symptoms }),
+    })
+  );
 }
 
 async function parseSymptoms(text, age) {
@@ -115,6 +117,23 @@ class MediaStreamHandler {
     return idx;
   }
 
+  async onTranscription(track, transcription) {
+    const { words, transcript } = JSON.parse(transcription);
+    console.log(`[ ${track} ]`, transcript, words);
+    if (words.length > 0) {
+      const block = this.parseFull(words, transcript.trim());
+      const idx = this.addBlock(block);
+      const response = await parseSymptoms(transcript, this.age);
+      const symptoms = JSON.parse(response).mentions;
+      updateDynamoDB(this.consultId, this.blocks, symptoms);
+      updateClient(this.connectionId, idx, block, symptoms);
+    } else {
+      const block = this.parsePartial(track, transcript.trim());
+      const idx = this.queues[track][0];
+      updateClient(this.connectionId, idx, block);
+    }
+  }
+
   processMessage(message) {
     if (message.type !== 'utf8') {
       console.log(`Media WS: ${message.type} message received (not supported)`);
@@ -127,33 +146,15 @@ class MediaStreamHandler {
       this.age = data.start.customParameters.age;
       this.consultId = data.start.customParameters.consult_id;
     }
-    if (data.event !== 'media') return;
-
-    const { track } = data.media;
-    if (this.trackHandlers[track] === undefined) {
-      const service = new TranscriptionService();
-      service.on('transcription', async (transcription) => {
-        const { words, transcript } = JSON.parse(transcription);
-        if (words.length > 0) {
-          const block = this.parseFull(words, transcript.trim());
-          const idx = this.addBlock(block);
-          //inbound is the doctor so we only process outbound messages through infermedica
-          let symptoms;
-          if (track === 'outbound') {
-            const response = await parseSymptoms(transcript, this.age);
-            symptoms = JSON.parse(response).mentions;
-          }
-          updateDynamoDB(this.consultId, this.blocks, symptoms);
-          updateClient(this.connectionId, idx, block, symptoms);
-        } else {
-          const block = this.parsePartial(track, transcript.trim());
-          const idx = this.queues[track][0];
-          updateClient(this.connectionId, idx, block);
-        }
-      });
-      this.trackHandlers[track] = service;
+    if (data.event === 'media') {
+      const { track } = data.media;
+      if (this.trackHandlers[track] === undefined)
+        this.trackHandlers[track] = new TranscriptionService(
+          track,
+          this.onTranscription
+        );
+      this.trackHandlers[track].send(data.media.payload);
     }
-    this.trackHandlers[track].send(data.media.payload);
   }
 
   parsePartial(track, transcript) {
@@ -184,11 +185,17 @@ class MediaStreamHandler {
     };
   }
 
-  close() {
+  async close() {
+    console.log('Closing Connection');
     for (let track of Object.keys(this.trackHandlers)) {
       console.log(`Closing ${track} handler`);
       this.trackHandlers[track].close();
     }
+    return websocket.send(
+      new DeleteConnectionCommand({
+        ConnectionId: connectionId,
+      })
+    );
   }
 }
 

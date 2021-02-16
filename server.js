@@ -5,11 +5,7 @@ const fs = require('fs');
 const https = require('https');
 const fetch = require('isomorphic-unfetch');
 const WebSocketServer = require('websocket').server;
-const {
-  SQSClient,
-  ReceiveMessageCommand,
-  DeleteMessageCommand,
-} = require('@aws-sdk/client-sqs');
+const { SQSClient, ReceiveMessageCommand } = require('@aws-sdk/client-sqs');
 const MediaStreamHandler = require('./MediaStreamHandler');
 
 const REGION = 'us-west-2';
@@ -19,16 +15,19 @@ const QUEUE_URL =
 const receieveParams = {
   MaxNumberOfMessages: 1,
   QueueUrl: QUEUE_URL,
-  VisibilityTimeout: 20,
+  VisibilityTimeout: 10,
   WaitTimeSeconds: 0,
 };
 
 async function run() {
   const sqs = new SQSClient({ region: REGION });
   const response = await sqs.send(new ReceiveMessageCommand(receieveParams));
-  const data = JSON.parse(response);
-  const { connectionId } = data.Messages[0].Body;
-  console.log(connectionId);
+  if (response.Messages.length === 0) {
+    throw new Error(
+      'Error retrieving messages from the SQS Queue: Wait time (10 seconds) expired.'
+    );
+  }
+  const { connectionId } = JSON.parse(response.Messages[0].Body);
 
   const wsserver = https.createServer({
     key: fs.readFileSync('./keys/privkey.pem'),
