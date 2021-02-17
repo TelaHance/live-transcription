@@ -1,5 +1,9 @@
 const fetch = require('isomorphic-unfetch');
-const { DynamoDB } = require('@aws-sdk/client-dynamodb');
+const {
+  DynamoDBClient,
+  UpdateItemCommand,
+  QueryCommand,
+} = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const {
   ApiGatewayManagementApiClient,
@@ -8,56 +12,24 @@ const {
 } = require('@aws-sdk/client-apigatewaymanagementapi');
 const TranscriptionService = require('./transcription-service');
 
-const client = new DynamoDB({ region: 'us-west-2' });
-const websocket = new ApiGatewayManagementApiClient({ region: 'us-west-2' });
+const SERVICE = 'f26oedtlj3';
+const REGION = 'us-west-2';
+const STAGE = 'dev';
 
-async function updateDynamoDB(consultId, blocks, symptoms) {
-  const queryParams = {
-    TableName: 'consults',
-    ExpressionAttributeValues: marshall({
-      ':c': consultId,
-    }),
-    KeyConditionExpression: 'consult_id = :c',
-    ProjectionExpression: 'start_time',
-  };
-  const data = await client.query(queryParams);
+const dbclient = new DynamoDBClient({ region: REGION });
+const websocket = new ApiGatewayManagementApiClient({
+  endpoint: `https://${SERVICE}.execute-api.${REGION}.amazonaws.com/${STAGE}`,
+  region: REGION,
+});
+websocket.middlewareStack.add(
+  (next) => async (args) => {
+    args.request.path = STAGE + args.request.path;
+    return await next(args);
+  },
+  { step: 'build' }
+);
 
-  console.log(unmarshall(data.Items[0]));
-
-  const updateParams = {
-    TableName: 'consults',
-    Key: marshall({
-      primaryKey: consultId,
-      secondaryKey: data.Items[0].start_time.N,
-    }),
-    UpdateExpression:
-      'SET transcript = :t, SET symptoms = list_append(symptoms, :s)',
-    ExpressionAttributeValues: marshall({ ':t': blocks }),
-    ReturnValues: 'UPDATED_NEW',
-  };
-
-  if (symptoms) {
-    updateParams.UpdateExpression +=
-      ', SET symptoms = list_append(symptoms, :s)';
-    updateParams.ExpressionAttributeValues = marshall({
-      ':t': blocks,
-      ':s': symptoms,
-    });
-  }
-
-  return client.updateItem(updateParams);
-}
-
-async function updateClient(connectionId, idx, block, symptoms) {
-  return websocket.send(
-    new PostToConnectionCommand({
-      ConnectionId: connectionId,
-      Data: JSON.stringify({ idx, block, symptoms }),
-    })
-  );
-}
-
-async function parseSymptoms(text, age) {
+async function parseSymptoms(age, text) {
   const response = await fetch('https://api.infermedica.com/v3/parse', {
     method: 'POST',
     headers: {
@@ -70,10 +42,9 @@ async function parseSymptoms(text, age) {
       text: text,
     }),
   });
-  if (response.status >= 400 && response.status < 600) {
-    throw new Error(response);
-  }
-  return response;
+  const data = await response.json();
+  console.log('[ INFERMEDICA PARSE ]', JSON.stringify(data));
+  return data;
 }
 
 function normalizeWord(currentWord) {
@@ -105,32 +76,45 @@ class MediaStreamHandler {
     this.currTrack = '';
     this.counter = -1;
     this.queues = { inbound: [], outbound: [] };
+    this.isFirstSymptomsUpdate = true;
     connection.on('message', this.processMessage.bind(this));
     connection.on('close', this.close.bind(this));
   }
 
   addBlock(block) {
+    // Merge new block with last block if coming from the same speaker.
+    if (this.blocks.length > 0) {
+      const idx = this.blocks.length - 1;
+      const lastBlock = this.blocks[idx];
+      if (block.speaker === lastBlock.speaker) {
+        lastBlock.fullText = lastBlock.fullText + block.fullText;
+        lastBlock.children = lastBlock.children.concat(block.children);
+      }
+      return { idx, block: lastBlock };
+    }
     if (this.queues[block.speaker].length === 0)
       throw new Error('Index queue empty in MediaStreamHandler');
     const idx = this.queues[block.speaker].shift();
     this.blocks[idx] = block;
-    return idx;
+    return { idx, block };
   }
 
-  async onTranscription(track, transcription) {
-    const { words, transcript } = JSON.parse(transcription);
-    console.log(`[ ${track} ]`, transcript, words);
+  async onTranscription(track, words, transcript) {
+    console.log(
+      `[ ${track} | ${words.length > 0 ? 'FULL' : 'PARTIAL'} ]`,
+      transcript
+    );
     if (words.length > 0) {
-      const block = this.parseFull(words, transcript.trim());
+      const block = this.parseFull(track, transcript.trim(), words);
       const idx = this.addBlock(block);
-      const response = await parseSymptoms(transcript, this.age);
-      const symptoms = JSON.parse(response).mentions;
-      updateDynamoDB(this.consultId, this.blocks, symptoms);
-      updateClient(this.connectionId, idx, block, symptoms);
+      const data = await parseSymptoms(this.age, transcript.trim());
+      const symptoms = data.mentions;
+      this.updateDynamoDB(symptoms);
+      this.updateClient({ idx, block, symptoms });
     } else {
       const block = this.parsePartial(track, transcript.trim());
       const idx = this.queues[track][0];
-      updateClient(this.connectionId, idx, block);
+      this.updateClient({ idx, block });
     }
   }
 
@@ -140,20 +124,21 @@ class MediaStreamHandler {
       return;
     }
 
-    const data = JSON.parse(message.utf8Data);
-    if (data.event === 'start') {
-      this.callSid = data.start.callSid;
-      this.age = data.start.customParameters.age;
-      this.consultId = data.start.customParameters.consult_id;
+    const { event, start, media } = JSON.parse(message.utf8Data);
+    if (event === 'start') {
+      const { callSid, customParameters } = start;
+      this.callSid = callSid;
+      this.age = customParameters.age || 30;
+      this.consultId = customParameters.consult_id;
     }
-    if (data.event === 'media') {
-      const { track } = data.media;
-      if (this.trackHandlers[track] === undefined)
+    if (event === 'media') {
+      const { track, payload } = media;
+      if (!this.trackHandlers[track])
         this.trackHandlers[track] = new TranscriptionService(
           track,
-          this.onTranscription
+          this.onTranscription.bind(this)
         );
-      this.trackHandlers[track].send(data.media.payload);
+      this.trackHandlers[track].send(payload);
     }
   }
 
@@ -171,7 +156,7 @@ class MediaStreamHandler {
     };
   }
 
-  parseFull(words, transcript) {
+  parseFull(track, transcript, words) {
     const newWords = [];
     words.forEach((word) => {
       newWords.push(normalizeWord(word));
@@ -185,6 +170,54 @@ class MediaStreamHandler {
     };
   }
 
+  async updateClient(data) {
+    return websocket.send(
+      new PostToConnectionCommand({
+        ConnectionId: this.connectionId,
+        Data: JSON.stringify(data),
+      })
+    );
+  }
+
+  async updateDynamoDB(symptoms) {
+    const queryParams = {
+      TableName: 'consults',
+      ExpressionAttributeValues: marshall({
+        ':c': this.consultId,
+      }),
+      KeyConditionExpression: 'consult_id = :c',
+      ProjectionExpression: 'start_time',
+    };
+    const data = await dbclient.send(new QueryCommand(queryParams));
+    const { start_time } = unmarshall(data.Items[0]);
+
+    const updateParams = {
+      TableName: 'consults',
+      Key: marshall({
+        consult_id: this.consultId,
+        start_time,
+      }),
+      UpdateExpression: 'SET transcript = :t',
+      ExpressionAttributeValues: marshall({ ':t': this.blocks }),
+      ReturnValues: 'UPDATED_NEW',
+    };
+
+    if (symptoms) {
+      if (this.isFirstSymptomsUpdate) {
+        updateParams.UpdateExpression += ', symptoms = :s';
+        this.isFirstSymptomsUpdate = false;
+      } else {
+        updateParams.UpdateExpression +=
+          ', symptoms = list_append(symptoms, :s)';
+      }
+      updateParams.ExpressionAttributeValues = marshall({
+        ':t': this.blocks,
+        ':s': symptoms,
+      });
+    }
+    return dbclient.send(new UpdateItemCommand(updateParams));
+  }
+
   async close() {
     console.log('Closing Connection');
     for (let track of Object.keys(this.trackHandlers)) {
@@ -193,7 +226,7 @@ class MediaStreamHandler {
     }
     return websocket.send(
       new DeleteConnectionCommand({
-        ConnectionId: connectionId,
+        ConnectionId: this.connectionId,
       })
     );
   }

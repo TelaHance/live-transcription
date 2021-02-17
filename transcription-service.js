@@ -56,7 +56,8 @@ class TranscriptionService {
           const result = data.results[0];
           if (result === undefined || result.alternatives[0] === undefined)
             return;
-          this.callback(this.track, JSON.stringify(result.alternatives[0]));
+          const { words, transcript } = result.alternatives[0];
+          this.callback(this.track, words, transcript);
         });
     }
 
