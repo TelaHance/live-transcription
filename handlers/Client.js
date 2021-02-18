@@ -23,7 +23,7 @@ class ClientHandler {
     this.connectionId = connectionId;
   }
 
-  async updateClient(data) {
+  async update(data) {
     if (typeof data !== 'string') data = JSON.stringify(data);
     return websocket.send(
       new PostToConnectionCommand({

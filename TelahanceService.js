@@ -37,8 +37,7 @@ class TelahanceService {
     if (words.length > 0) {
       const block = this.parseFinal(track, transcript.trim(), words);
       const idx = this.addBlock(block);
-      const data = await parseSymptoms(this.age, transcript.trim());
-      const symptoms = data.mentions;
+      const symptoms = await Infermedica.parse(this.age, transcript.trim());
       DynamoDB.update(this.consultId, this.blocks, symptoms);
       this.client.update({ idx, block, symptoms });
     } else {
@@ -75,7 +74,7 @@ class TelahanceService {
     }
     if (event === 'stop') {
       console.log(`[ Twilio ] Received Stop Event`);
-      this.client.update('Call Ended');
+      this.client.update({ callEnded: true });
       this.close();
     }
   }

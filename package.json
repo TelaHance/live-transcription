@@ -19,6 +19,7 @@
     "@aws-sdk/util-dynamodb": "latest",
     "@google-cloud/speech": "^1.5.0",
     "dotenv": "^4.0.0",
+    "isomorphic-unfetch": "^3.1.0",
     "websocket": "^1.0.28"
   }
 }

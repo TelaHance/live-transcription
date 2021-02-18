@@ -1,3 +1,5 @@
+const fetch = require('isomorphic-unfetch');
+
 async function parse(age, text) {
   const response = await fetch('https://api.infermedica.com/v3/parse', {
     method: 'POST',
@@ -13,7 +15,7 @@ async function parse(age, text) {
   });
   const data = await response.json();
   console.log('[ Infermedica ]', JSON.stringify(data));
-  return data;
+  return data.mentions;
 }
 
 module.exports = {
