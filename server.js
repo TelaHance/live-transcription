@@ -1,12 +1,9 @@
-'use strict';
 require('dotenv').load();
-
 const fs = require('fs');
 const https = require('https');
-const fetch = require('isomorphic-unfetch');
 const WebSocketServer = require('websocket').server;
 const { SQSClient, ReceiveMessageCommand } = require('@aws-sdk/client-sqs');
-const MediaStreamHandler = require('./MediaStreamHandler');
+const TelahanceService = require('./TelahanceService');
 
 const REGION = 'us-west-2';
 const QUEUE_URL =
@@ -39,13 +36,20 @@ async function run() {
     autoAcceptConnections: true,
   });
 
+  // Close server if Twilio does not connect within 1 minute.
+  const timeout = setTimeout(() => {
+    console.log('[ Twilio ] Failed to connect... closing server');
+    wsserver.close();
+  }, 60000);
+
   mediaws.on('connect', function (connection) {
-    console.log('Media WS: Connection accepted');
-    new MediaStreamHandler(connection, connectionId);
+    clearTimeout(timeout);
+    console.log('[ Twilio ] Connection accepted');
+    new TelahanceService(connection, connectionId);
   });
 
   mediaws.on('close', function close() {
-    console.log('Media WS: Connection closed');
+    console.log('[ Twilio ] Connection closed');
     wsserver.close();
   });
 
