@@ -69,7 +69,7 @@ class SpeechToTextHandler {
             } ] ${transcript}`
           );
 
-          this.cb(this.track, words, transcript);
+          this.cb(this.track, transcript.trim(), words);
           this.readyToClose = isFinal;
         });
     }

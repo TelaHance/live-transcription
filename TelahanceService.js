@@ -1,50 +1,67 @@
 const { Client, DynamoDB, Infermedica, SpeechToText } = require('./handlers');
-const { normalizeWord, transcriptToWords } = require('./util/transform');
+const BlockOrganizer = require('./util/BlockOrganizer');
 
 class TelahanceService {
   constructor(connection, connectionId) {
     this.trackHandlers = {};
     this.blocks = [];
     this.currTrack = '';
-    this.counter = -1;
-    this.queues = { inbound: [], outbound: [] };
     this.isUpdating = false;
+    this.blockOrganizer = new BlockOrganizer();
     this.client = new Client(connectionId);
     connection.on('message', this.onMessage.bind(this));
-    connection.on('close', () => console.log('[ Twilio ] Sent close event'));
+  }
+
+  getBlocksInfo() {
+    const lastIdx = this.blocks.length - 1;
+    const lastBlock = this.blocks[lastIdx];
+    const lastTrack = lastBlock.speaker;
+    return { lastIdx, lastBlock, lastTrack };
   }
 
   addBlock(block) {
-    // Merge new block with last block if coming from the same speaker.
+    const track = block.speaker;
+
+    // Merge consecutive blocks from same speaker.
     if (this.blocks.length > 0) {
-      const idx = this.blocks.length - 1;
-      const lastBlock = this.blocks[idx];
-      if (block.speaker === lastBlock.speaker) {
-        lastBlock.fullText = lastBlock.fullText + block.fullText;
+      const { lastIdx, lastBlock, lastTrack } = this.getBlocksInfo();
+
+      if (track === lastTrack) {
+        lastBlock.fullText += ' ' + block.fullText;
         lastBlock.children = lastBlock.children.concat(block.children);
+        return { idx: lastIdx, block: lastBlock };
       }
-      return { idx, block: lastBlock };
     }
-    if (this.queues[block.speaker].length === 0)
-      throw new Error('Index queue empty in TelahanceService');
-    const idx = this.queues[block.speaker].shift();
+
+    // Otherwise, get a new block index from the queue.
+    this.blockOrganizer.assertNotEmpty(track);
+    const idx = this.blockOrganizer.pop(track);
     this.blocks[idx] = block;
     return { idx, block };
   }
 
-  async onTranscription(track, words, transcript) {
+  async onTranscription(track, transcript, words) {
     this.isUpdating = true;
+    const block = this.blockOrganizer.format(track, transcript, words);
+    let data;
     if (words.length > 0) {
-      const block = this.parseFinal(track, transcript.trim(), words);
-      const idx = this.addBlock(block);
-      const symptoms = await Infermedica.parse(this.age, transcript.trim());
-      DynamoDB.update(this.consultId, this.blocks, symptoms);
-      this.client.update({ idx, block, symptoms });
+      data = this.addBlock(block);
+      data.symptoms = await Infermedica.parse(this.age, transcript);
+      DynamoDB.update(this.consultId, this.blocks, data.symptoms);
     } else {
-      const block = this.parseInterim(track, transcript.trim());
-      const idx = this.queues[track][0];
-      this.client.update({ idx, block });
+      let idx = this.blockOrganizer.getIdx(track);
+      if (this.blocks.length > 0) {
+        const { lastIdx, lastBlock, lastTrack } = this.getBlocksInfo();
+        if (track === lastTrack) {
+          idx = lastIdx;
+          block.fullText = lastBlock.fullText + ' ' + block.fullText;
+          block.children = lastBlock.children.concat(block.children);
+        }
+      }
+
+      data = { idx, block };
     }
+    this.client.update(data);
     this.isUpdating = false;
   }
 
@@ -65,46 +82,20 @@ class TelahanceService {
     }
     if (event === 'media') {
       const { track, payload } = media;
-      if (!this.trackHandlers[track])
+      if (!this.trackHandlers[track]) {
         this.trackHandlers[track] = new SpeechToText(
           track,
           this.onTranscription.bind(this)
         );
+        this.blockOrganizer.newQueue(track);
+      }
       this.trackHandlers[track].send(payload);
     }
     if (event === 'stop') {
-      console.log(`[ Twilio ] Received Stop Event`);
+      console.log(`[ TelahanceService ] Call Ended`);
       this.client.update({ callEnded: true });
       this.close();
     }
-  }
-
-  parseInterim(track, transcript) {
-    if (track !== this.prevTrack) {
-      this.counter++;
-      this.queues[track].push(this.counter);
-      this.prevTrack = track;
-    }
-    return {
-      fullText: transcript + ' ',
-      type: 'message',
-      children: transcriptToWords(transcript),
-      speaker: track,
-    };
-  }
-
-  parseFinal(track, transcript, words) {
-    const newWords = [];
-    words.forEach((word) => {
-      newWords.push(normalizeWord(word));
-    });
-    return {
-      start: newWords[0].start,
-      fullText: transcript + ' ',
-      type: 'message',
-      children: newWords,
-      speaker: track,
-    };
   }
 
   async close(maxWaitTime = 5000) {
