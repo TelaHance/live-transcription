@@ -26,6 +26,6 @@
     "isomorphic-unfetch": "^3.1.0",
     "s3-upload-stream": "^1.0.7",
     "twilio": "^3.57.0",
-    "websocket": "^1.0.28"
+    "ws": "^7.4.3"
   }
 }
