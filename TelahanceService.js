@@ -92,39 +92,44 @@ class TelahanceService {
     }
     const { event, start, media } = JSON.parse(message.utf8Data);
 
-    if (event !== 'media') {
-      console.log(`[ TelahanceService ] Received event: ${event}`);
-    }
+    switch (event) {
+      case 'start':
+        console.log(`[ TelahanceService ] Call Started`);
+        const {
+          callSid,
+          customParameters: { age, consult_id },
+        } = start;
+        this.age = age || 30;
+        this.consultId = consult_id;
+        this.callSid = callSid;
+        DynamoDB.updateCallSid(consult_id, callSid);
+        break;
 
-    if (event === 'start') {
-      const {
-        callSid,
-        customParameters: { age, consult_id },
-      } = start;
-      this.age = age || 30;
-      this.consultId = consult_id;
-      this.callSid = callSid;
-      DynamoDB.updateCallSid(consult_id, callSid);
-    }
-    if (event === 'media') {
-      const { track, payload } = media;
-      const role = getRole(track);
-      if (!this.trackHandlers[role]) {
-        this.trackHandlers[role] = new SpeechToText(
-          role,
-          this.onTranscription.bind(this)
-        );
-        this.blockOrganizer.newQueue(role);
-      }
-      this.trackHandlers[role].send(payload);
-    }
-    if (event === 'stop') {
-      console.log(`[ TelahanceService ] Call Ended`);
-      this.close();
+      case 'media':
+        const { track, payload } = media;
+        const role = getRole(track);
+        if (!this.trackHandlers[role]) {
+          this.trackHandlers[role] = new SpeechToText(
+            role,
+            this.onTranscription.bind(this)
+          );
+          this.blockOrganizer.newQueue(role);
+        }
+        this.trackHandlers[role].send(payload);
+        break;
+
+      case 'stop':
+        console.log(`[ TelahanceService ] Call Ended`);
+        this.close();
+        break;
+
+      default:
+        console.log('[ TelahanceService ] Event unhandled: ', event);
     }
   }
 
   async close(maxWaitTime = 5000) {
+    // Wait for Google Speech to Text to finish transcribing.
     const tracks = Object.keys(this.trackHandlers);
     try {
       await Promise.all(
@@ -132,9 +137,13 @@ class TelahanceService {
       );
       console.log('[ TelahanceService ] Successfully closed tracks');
     } catch (err) {
-      console.error(err.message);
+      console.error(
+        '[ TelahanceService ] Error while closing tracks',
+        err.message
+      );
     }
 
+    // Wait for last updates to be sent to Client and DynamoDB.
     try {
       await new Promise((resolve, reject) => {
         const errmsg = '[ TelahanceService ] Failed to close';
@@ -152,25 +161,11 @@ class TelahanceService {
       console.error(err.message);
     }
 
-    console.log('[ TelahanceService ] Closing client websocket connection');
-
-    try {
-      await this.client.disconnect();
-    } catch (err) {
-      console.error(
-        '[ TelahanceService ] Client websocket connection may already be closed'
-      );
-      console.error(`[ TelahanceService | ${err.name} ] ${err.message}`);
-    }
-
-    try {
-      await S3.uploadRecording(this.callSid);
-    } catch (err) {
-      console.error(
-        '[ TelahanceService ] Error while moving recordings from Twilio to S3 bucket'
-      );
-      console.error(`[ TelahanceService | ${err.name} ] ${err.message}`);
-    }
+    // Disconnect client and upload recordings.
+    await Promise.all([
+      this.client.disconnect(),
+      S3.uploadRecording(this.callSid),
+    ]);
   }
 }
 

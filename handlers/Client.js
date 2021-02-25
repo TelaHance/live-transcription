@@ -18,7 +18,7 @@ websocket.middlewareStack.add(
   { step: 'build' }
 );
 
-class ClientHandler {
+class Client {
   constructor(connectionId) {
     this.connectionId = connectionId;
   }
@@ -47,6 +47,7 @@ class ClientHandler {
           ConnectionId: this.connectionId,
         })
       );
+      console.log('[ Client ] Websocket successfully disconnected.');
     } catch (err) {
       console.log(
         '[ Client ] Failed to disconnect the websocket. If user closed the connection themselves, or navigated away from the page, this is expected.'
@@ -56,4 +57,4 @@ class ClientHandler {
   }
 }
 
-module.exports = ClientHandler;
+module.exports = Client;

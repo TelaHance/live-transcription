@@ -1,48 +1,42 @@
 require('dotenv').load();
 const fs = require('fs');
 const https = require('https');
-const WebSocketServer = require('websocket').server;
-const {
-  SQSClient,
-  DeleteMessageCommand,
-  ReceiveMessageCommand,
-} = require('@aws-sdk/client-sqs');
+const express = require('express');
+const bodyParser = require('body-parser');
+const WSServer = require('ws').Server;
+const { SQS } = require('./handlers');
 const TelahanceService = require('./TelahanceService');
 
-const REGION = 'us-west-2';
-const QueueUrl =
-  'https://sqs.us-west-2.amazonaws.com/113657999858/WebsocketQueue.fifo';
-
-const receieveParams = {
-  MaxNumberOfMessages: 1,
-  QueueUrl,
-  VisibilityTimeout: 10,
-  WaitTimeSeconds: 0,
+const PORT = 443;
+const CERT = {
+  key: fs.readFileSync('./keys/privkey.pem'),
+  cert: fs.readFileSync('./keys/cert.pem'),
 };
 
+// Create http server for Twilio call events
+
+const app = express();
+
+app.use(bodyParser.urlencoded({ extended: false }));
+
+app.post('/events', (req, res) => {
+  console.log('[ Server ] Request received for /events: ', req.body);
+  const { to, from, CallStatus, callSid } = req.body;
+  console.log('[ Server ] Call status: ', CallStatus);
+  res.send('Received');
+});
+
+// Main function for application
+
 async function run() {
-  const sqs = new SQSClient({ region: REGION });
-  const response = await sqs.send(new ReceiveMessageCommand(receieveParams));
-  if (response.Messages && response.Messages.length === 0) {
-    throw new Error(
-      'Error retrieving messages from the SQS Queue: Wait time (10 seconds) expired.'
-    );
-  }
-  const { Body, ReceiptHandle } = response.Messages[0];
-  sqs.send(new DeleteMessageCommand({ QueueUrl, ReceiptHandle }));
-  const { connectionId } = JSON.parse(Body);
+  const connectionId = await SQS.getConnectionId();
 
-  const wsserver = https.createServer({
-    key: fs.readFileSync('./keys/privkey.pem'),
-    cert: fs.readFileSync('./keys/cert.pem'),
-  });
+  const server = https.createServer(CERT);
+  const wss = new WSServer({ server });
 
-  const mediaws = new WebSocketServer({
-    httpServer: wsserver,
-    autoAcceptConnections: true,
-  });
+  // Mount app for normal https requests.
+  server.on('request', app);
 
-  // Close server if Twilio does not connect within 1 minute.
   const waitTime = 5; // in minutes
   const timeout = setTimeout(() => {
     console.log(
@@ -52,23 +46,21 @@ async function run() {
       `[ Server ] Probable cause: Call not started by client within ${waitTime} minutes after viewing appointments page`
     );
     console.log(`[ Server ] Closing server`);
-    wsserver.close();
-  }, waitTime * 60 * 1000);
+    wss.close();
+  }, waitTime * 60000);
 
-  mediaws.on('connect', function (connection) {
+  wss.on('connection', (ws) => {
     clearTimeout(timeout);
-    console.log('[ Server ] Twilio connection connected');
-    new TelahanceService(connection, connectionId);
+    console.log('[ Server ] Connected to Twilio Websocket');
+    new TelahanceService(ws, connectionId);
+    ws.on('close', () => {
+      console.log('[ Server ] Disconnected from Twilio Websocket');
+      wss.close();
+    });
   });
 
-  mediaws.on('close', function close() {
-    console.log('[ Server ] Twilio connection closed');
-    wsserver.close();
-  });
-
-  const HTTP_SERVER_PORT = 443;
-  wsserver.listen(HTTP_SERVER_PORT, () =>
-    console.log(`Server listening on: http://localhost:${HTTP_SERVER_PORT}`)
+  server.listen(PORT, () =>
+    console.log(`[ Server ] https/ws server listening on ${PORT}`)
   );
 }
 
