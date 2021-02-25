@@ -3,4 +3,5 @@ module.exports = {
   DynamoDB: require('./DynamoDB'),
   Infermedica: require('./Infermedica'),
   SpeechToText: require('./SpeechToText'),
-}
+  S3: require('./S3'),
+};

@@ -1,4 +1,10 @@
-const { Client, DynamoDB, Infermedica, SpeechToText } = require('./handlers');
+const {
+  Client,
+  DynamoDB,
+  Infermedica,
+  SpeechToText,
+  S3,
+} = require('./handlers');
 const BlockOrganizer = require('./util/BlockOrganizer');
 
 function getRole(track) {
@@ -98,7 +104,7 @@ class TelahanceService {
       this.age = age || 30;
       this.consultId = consult_id;
       this.callSid = callSid;
-      DynamoDB.updateCallSid(consultId, callSid);
+      DynamoDB.updateCallSid(consult_id, callSid);
     }
     if (event === 'media') {
       const { track, payload } = media;
@@ -153,6 +159,15 @@ class TelahanceService {
     } catch (err) {
       console.error(
         '[ TelahanceService ] Client websocket connection may already be closed'
+      );
+      console.error(`[ TelahanceService | ${err.name} ] ${err.message}`);
+    }
+
+    try {
+      await S3.uploadRecording(this.callSid);
+    } catch (err) {
+      console.error(
+        '[ TelahanceService ] Error while moving recordings from Twilio to S3 bucket'
       );
       console.error(`[ TelahanceService | ${err.name} ] ${err.message}`);
     }

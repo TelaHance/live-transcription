@@ -18,8 +18,12 @@
     "@aws-sdk/client-sqs": "^3.4.1",
     "@aws-sdk/util-dynamodb": "latest",
     "@google-cloud/speech": "^1.5.0",
+    "aws-sdk": "^2.851.0",
+    "axios": "^0.21.1",
     "dotenv": "^4.0.0",
     "isomorphic-unfetch": "^3.1.0",
+    "s3-upload-stream": "^1.0.7",
+    "twilio": "^3.57.0",
     "websocket": "^1.0.28"
   }
 }
