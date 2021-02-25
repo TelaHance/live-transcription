@@ -43,19 +43,26 @@ async function run() {
   });
 
   // Close server if Twilio does not connect within 1 minute.
+  const waitTime = 5; // in minutes
   const timeout = setTimeout(() => {
-    console.log('[ Twilio ] Failed to connect... closing server');
+    console.log(
+      `[ Server ] Twilio connection not found... waited for ${waitTime} minutes`
+    );
+    console.log(
+      `[ Server ] Probable cause: Call not started by client within ${waitTime} minutes after viewing appointments page`
+    );
+    console.log(`[ Server ] Closing server`);
     wsserver.close();
-  }, 60000);
+  }, waitTime * 60 * 1000);
 
   mediaws.on('connect', function (connection) {
     clearTimeout(timeout);
-    console.log('[ Twilio ] Connection accepted');
+    console.log('[ Server ] Twilio connection connected');
     new TelahanceService(connection, connectionId);
   });
 
   mediaws.on('close', function close() {
-    console.log('[ Twilio ] Connection closed');
+    console.log('[ Server ] Twilio connection closed');
     wsserver.close();
   });
 

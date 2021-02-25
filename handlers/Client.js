@@ -25,20 +25,34 @@ class ClientHandler {
 
   async update(data) {
     if (typeof data !== 'string') data = JSON.stringify(data);
-    return websocket.send(
-      new PostToConnectionCommand({
-        ConnectionId: this.connectionId,
-        Data: data,
-      })
-    );
+    try {
+      await websocket.send(
+        new PostToConnectionCommand({
+          ConnectionId: this.connectionId,
+          Data: data,
+        })
+      );
+    } catch (err) {
+      console.log(
+        '[ Client ] Failed to send update message to client. If user closed the connection themselves, or navigated away from the page, this is expected.'
+      );
+      console.error(err.name, err.message);
+    }
   }
 
   async disconnect() {
-    return websocket.send(
-      new DeleteConnectionCommand({
-        ConnectionId: this.connectionId,
-      })
-    );
+    try {
+      await websocket.send(
+        new DeleteConnectionCommand({
+          ConnectionId: this.connectionId,
+        })
+      );
+    } catch (err) {
+      console.log(
+        '[ Client ] Failed to disconnect the websocket. If user closed the connection themselves, or navigated away from the page, this is expected.'
+      );
+      console.error(err.name, err.message);
+    }
   }
 }
 

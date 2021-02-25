@@ -15,8 +15,8 @@ const request = {
 };
 
 class SpeechToTextHandler {
-  constructor(track, cb) {
-    this.track = track;
+  constructor(role, cb) {
+    this.role = role;
     this.cb = cb;
     this.stream = null;
     this.streamCreatedAt = null;
@@ -64,12 +64,12 @@ class SpeechToTextHandler {
           this.prevTranscript = transcript;
 
           console.log(
-            `[ SpeechToText | ${this.track} | ${
+            `[ SpeechToText | ${this.role} | ${
               isFinal ? 'Final' : 'Interim'
             } ] ${transcript}`
           );
 
-          this.cb(this.track, transcript.trim(), words);
+          this.cb(this.role, transcript.trim(), words);
           this.readyToClose = isFinal;
         });
     }

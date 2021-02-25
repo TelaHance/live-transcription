@@ -1,6 +1,15 @@
 const { Client, DynamoDB, Infermedica, SpeechToText } = require('./handlers');
 const BlockOrganizer = require('./util/BlockOrganizer');
 
+function getRole(track) {
+  return (
+    {
+      inbound: 'DOCTOR',
+      outbound: 'PATIENT',
+    }[track] || track
+  );
+}
+
 class TelahanceService {
   constructor(connection, connectionId) {
     this.trackHandlers = {};
@@ -10,23 +19,26 @@ class TelahanceService {
     this.blockOrganizer = new BlockOrganizer();
     this.client = new Client(connectionId);
     connection.on('message', this.onMessage.bind(this));
+    connection.on('close', () =>
+      console.log('[ TelahanceService ] Connection received close event')
+    );
   }
 
   getBlocksInfo() {
     const lastIdx = this.blocks.length - 1;
     const lastBlock = this.blocks[lastIdx];
-    const lastTrack = lastBlock.speaker;
-    return { lastIdx, lastBlock, lastTrack };
+    const lastRole = lastBlock.speaker;
+    return { lastIdx, lastBlock, lastRole };
   }
 
   addBlock(block) {
-    const track = block.speaker;
+    const role = block.speaker;
 
     // Merge consecutive blocks from same speaker.
     if (this.blocks.length > 0) {
-      const { lastIdx, lastBlock, lastTrack } = this.getBlocksInfo();
+      const { lastIdx, lastBlock, lastRole } = this.getBlocksInfo();
 
-      if (track === lastTrack) {
+      if (role === lastRole) {
         lastBlock.fullText += ' ' + block.fullText;
         lastBlock.children = lastBlock.children.concat(block.children);
         return { idx: lastIdx, block: lastBlock };
@@ -34,25 +46,25 @@ class TelahanceService {
     }
 
     // Otherwise, get a new block index from the queue.
-    this.blockOrganizer.assertNotEmpty(track);
-    const idx = this.blockOrganizer.pop(track);
+    this.blockOrganizer.assertNotEmpty(role);
+    const idx = this.blockOrganizer.pop(role);
     this.blocks[idx] = block;
     return { idx, block };
   }
 
-  async onTranscription(track, transcript, words) {
+  async onTranscription(role, transcript, words) {
     this.isUpdating = true;
-    const block = this.blockOrganizer.format(track, transcript, words);
+    const block = this.blockOrganizer.format(role, transcript, words);
     let data;
     if (words.length > 0) {
       data = this.addBlock(block);
       data.symptoms = await Infermedica.parse(this.age, transcript);
       DynamoDB.update(this.consultId, this.blocks, data.symptoms);
     } else {
-      let idx = this.blockOrganizer.getIdx(track);
+      let idx = this.blockOrganizer.getIdx(role);
       if (this.blocks.length > 0) {
-        const { lastIdx, lastBlock, lastTrack } = this.getBlocksInfo();
-        if (track === lastTrack) {
+        const { lastIdx, lastBlock, lastRole } = this.getBlocksInfo();
+        if (role === lastRole) {
           idx = lastIdx;
           block.fullText = lastBlock.fullText + ' ' + block.fullText;
           block.children = lastBlock.children.concat(block.children);
@@ -74,26 +86,34 @@ class TelahanceService {
     }
     const { event, start, media } = JSON.parse(message.utf8Data);
 
+    if (event !== 'media') {
+      console.log(`[ TelahanceService ] Received event: ${event}`);
+    }
+
     if (event === 'start') {
-      const { callSid, customParameters } = start;
+      const {
+        callSid,
+        customParameters: { age, consult_id },
+      } = start;
+      this.age = age || 30;
+      this.consultId = consult_id;
       this.callSid = callSid;
-      this.age = customParameters.age || 30;
-      this.consultId = customParameters.consult_id;
+      DynamoDB.updateCallSid(consultId, callSid);
     }
     if (event === 'media') {
       const { track, payload } = media;
-      if (!this.trackHandlers[track]) {
-        this.trackHandlers[track] = new SpeechToText(
-          track,
+      const role = getRole(track);
+      if (!this.trackHandlers[role]) {
+        this.trackHandlers[role] = new SpeechToText(
+          role,
           this.onTranscription.bind(this)
         );
-        this.blockOrganizer.newQueue(track);
+        this.blockOrganizer.newQueue(role);
       }
-      this.trackHandlers[track].send(payload);
+      this.trackHandlers[role].send(payload);
     }
     if (event === 'stop') {
       console.log(`[ TelahanceService ] Call Ended`);
-      this.client.update({ callEnded: true });
       this.close();
     }
   }

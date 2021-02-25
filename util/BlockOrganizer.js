@@ -19,20 +19,20 @@ function transcriptToWords(transcript) {
 class BlockOrganizer {
   constructor() {
     this.counter = -1;
-    this.prevTrack = '';
-    this.trackQueues = {};
+    this.prevRole = '';
+    this.roleQueues = {};
   }
 
-  format(track, transcript, words) {
+  format(role, transcript, words) {
     const block = {
       type: 'message',
-      speaker: track,
+      speaker: role,
     };
     if (words === undefined || words.length === 0) {
-      if (track !== this.prevTrack) {
+      if (role !== this.prevRole) {
         this.counter++;
-        this.trackQueues[track].push(this.counter);
-        this.prevTrack = track;
+        this.roleQueues[role].push(this.counter);
+        this.prevRole = role;
       }
       block.fullText = transcript;
       block.children = transcriptToWords(transcript);
@@ -45,21 +45,21 @@ class BlockOrganizer {
     return block;
   }
 
-  newQueue(track) {
-    this.trackQueues[track] = [];
+  newQueue(role) {
+    this.roleQueues[role] = [];
   }
 
-  getIdx(track) {
-    return this.trackQueues[track][0];
+  getIdx(role) {
+    return this.roleQueues[role][0];
   }
 
-  assertNotEmpty(track) {
-    if (this.trackQueues[track].length === 0)
+  assertNotEmpty(role) {
+    if (this.roleQueues[role].length === 0)
       throw new Error('Index queue empty in TelahanceService');
   }
 
-  pop(track) {
-    return this.trackQueues[track].shift();
+  pop(role) {
+    return this.roleQueues[role].shift();
   }
 }
 

@@ -10,7 +10,7 @@ const dbclient = new DynamoDBClient({ region: REGION });
 
 let isFirstSymptomsUpdate = true;
 
-async function update(consultId, blocks, symptoms) {
+async function get(consultId) {
   const queryParams = {
     TableName: 'consults',
     ExpressionAttributeValues: marshall({
@@ -20,7 +20,11 @@ async function update(consultId, blocks, symptoms) {
     ProjectionExpression: 'start_time',
   };
   const data = await dbclient.send(new QueryCommand(queryParams));
-  const { start_time } = unmarshall(data.Items[0]);
+  return unmarshall(data.Items[0]);
+}
+
+async function update(consultId, blocks, symptoms) {
+  const { start_time } = await get(consultId);
 
   const updateParams = {
     TableName: 'consults',
@@ -34,12 +38,12 @@ async function update(consultId, blocks, symptoms) {
   };
 
   if (symptoms) {
+    let updateVal = 'list_append(symptoms, :s)';
     if (isFirstSymptomsUpdate) {
-      updateParams.UpdateExpression += ', symptoms = :s';
+      updateVal = ':s';
       isFirstSymptomsUpdate = false;
-    } else {
-      updateParams.UpdateExpression += ', symptoms = list_append(symptoms, :s)';
     }
+    updateParams.UpdateExpression += `, symptoms = ${updateVal}`;
     updateParams.ExpressionAttributeValues = marshall({
       ':t': blocks,
       ':s': symptoms,
@@ -48,6 +52,23 @@ async function update(consultId, blocks, symptoms) {
   return dbclient.send(new UpdateItemCommand(updateParams));
 }
 
+async function updateCallSid(consultId, callSid) {
+  const { start_time } = await get(consultId);
+  const updateParams = {
+    TableName: 'consults',
+    Key: marshall({
+      consult_id: consultId,
+      start_time,
+    }),
+    UpdateExpression: 'SET call_sid = :id',
+    ExpressionAttributeValues: marshall({ ':id': callSid }),
+    ReturnValues: 'UPDATED_NEW',
+  };
+  return dbclient.send(new UpdateItemCommand(updateParams));
+}
+
 module.exports = {
+  get,
   update,
+  updateCallSid,
 };
