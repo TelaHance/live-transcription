@@ -31,13 +31,10 @@ class DynamoDB {
     const data = await dbclient.send(
       new GetItemCommand({
         TableName: 'users',
-        ExpressionAttributeValues: marshall({
-          ':p': this.consult.patient_id,
-        }),
-        KeyConditionExpression: 'user_id = :p',
+        Key: marshall({ user_id: this.consult.patient_id }),
       })
     );
-    return unmarshall(data.Items[0]);
+    return unmarshall(data.Item);
   }
 
   async updateConsult({ blocks, callSid, entities, sentiment }) {

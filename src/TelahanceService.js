@@ -5,8 +5,8 @@ const {
   Perspective,
   S3,
   SpeechToText,
-} = require('./handlers');
-const BlockOrganizer = require('./util/BlockOrganizer');
+} = require('./src/handlers');
+const BlockOrganizer = require('./src/util/BlockOrganizer');
 
 function getRole(track) {
   return (
@@ -118,9 +118,11 @@ class TelahanceService {
 
         this.dynamoDBClient = new DynamoDB();
         await this.dynamoDBClient.initialize(consult_id);
-        const patient = await this.dynamoDBClient.getPatient();
 
+        const patient = await this.dynamoDBClient.getPatient();
         this.infermedicaClient = new Infermedica(patient);
+
+        const { purpose } = this.dynamoDBClient.consult;
         const entities = await this.infermedicaClient.parse(purpose);
 
         // Update DynamoDB and Client with initial values.
