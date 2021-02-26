@@ -3,46 +3,44 @@ const { S3 } = require('aws-sdk');
 const S3UploadStream = require('s3-upload-stream');
 const Twilio = require('./Twilio');
 
-function getUploadPath(recording) {
-  const recordingDate = new Date(recording.dateCreated);
+function getUploadPath({ dateCreated, callSid }) {
+  const recordingDate = new Date(dateCreated);
   const year = recordingDate.getFullYear();
-  const callSid = recording.callSid;
   return `Recordings/${year}/${callSid}.mp3`;
 }
 
-async function transfer_recording(download_url, upload_stream) {
+async function transferRecording(fromUrl, toUrl) {
   console.log('[ S3 ] Beginning call audio transfer');
   const response = await axios({
     method: 'GET',
-    url: download_url,
+    url: fromUrl,
     responseType: 'stream',
   });
-  response.data.pipe(upload_stream);
+  response.data.pipe(toUrl);
   return new Promise((resolve, reject) => {
-    upload_stream.on('uploaded', () => {
+    toUrl.on('uploaded', () => {
       console.log('[ S3 ] Successfully uploaded call audio.');
       resolve();
     });
-    upload_stream.on('error', () => {
+    toUrl.on('error', () => {
       console.error('[ S3 ] Failed to upload call audio.');
       reject();
     });
   });
 }
 
-async function uploadRecording(callSid) {
-  const recording = await Twilio.getRecording(callSid);
-  const download_url = Twilio.getDownloadUrl(recording);
+async function uploadRecording(recordingSid, recordingUrl) {
+  const recording = await Twilio.getCompletedRecording(recordingSid);
+
   const upload_path = getUploadPath(recording);
-  let s3Stream = S3UploadStream(new S3());
-  let upload_stream = s3Stream.upload({
+  const s3UploadStream = S3UploadStream(new S3()).upload({
     Bucket: 'teleconsults',
     Key: upload_path,
     ContentType: 'audio/mpeg',
   });
   try {
-    await transfer_recording(download_url, upload_stream);
-    Twilio.deleteRecording(recording.sid);
+    await transferRecording(recordingUrl, s3UploadStream);
+    Twilio.deleteRecording(recordingSid);
   } catch (err) {
     console.error(
       '[ S3 ] Error while transferring recordings: ',

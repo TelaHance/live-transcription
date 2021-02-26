@@ -31,10 +31,16 @@ class TelahanceService {
   }
 
   onCallEvent(callEvent) {
-    const { CallStatus, RecordingUrl, RecordingDuration } = callEvent;
+    const {
+      CallStatus,
+      RecordingSid,
+      RecordingUrl,
+      RecordingDuration,
+    } = callEvent;
     console.log(`[ TelahanceService ] Call ${CallStatus}`);
     if (CallStatus === 'in-progress') this.callInProgress = true;
     else if (CallStatus === 'completed') {
+      this.recordingSid = RecordingSid;
       this.recordingUrl = `${RecordingUrl}.mp3`;
       this.recordingDuration = RecordingDuration;
       console.log(
@@ -171,7 +177,7 @@ class TelahanceService {
     // Disconnect client and upload recordings.
     await Promise.all([
       this.client.disconnect(),
-      S3.uploadRecording(this.callSid),
+      S3.uploadRecording(this.recordingSid, this.recordingUrl),
     ]);
   }
 }
