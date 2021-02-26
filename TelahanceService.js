@@ -22,8 +22,8 @@ class TelahanceService {
     this.trackHandlers = {};
     this.blocks = [];
     this.currTrack = '';
-    this.isUpdating = false;
     this.blockOrganizer = new BlockOrganizer();
+    this.isUpdating = false;
   }
 
   connect(connection, connectionId) {
@@ -84,10 +84,10 @@ class TelahanceService {
     let data;
     if (words.length > 0) {
       data = this.addBlock(block);
-      data.symptoms = await Infermedica.parse(this.age, transcript);
-      DynamoDB.update(this.consultId, {
+      data.symptoms = await this.infermedicaClient.parse(transcript);
+      this.dynamoDBClient.update({
         blocks: this.blocks,
-        symptoms: data.symptoms,
+        entities: data.symptoms,
       });
     } else {
       let idx = this.blockOrganizer.getIdx(role);
@@ -99,14 +99,13 @@ class TelahanceService {
           block.children = lastBlock.children.concat(block.children);
         }
       }
-
       data = { idx, block };
     }
     this.client.update(data);
     this.isUpdating = false;
   }
 
-  onMessage(message) {
+  async onMessage(message) {
     const { event, start, media } = JSON.parse(message);
 
     switch (event) {
@@ -114,12 +113,19 @@ class TelahanceService {
         console.log(`[ TelahanceService ] Call Started`);
         const {
           callSid,
-          customParameters: { age, consult_id },
+          customParameters: { consult_id },
         } = start;
-        this.age = age || 30;
-        this.consultId = consult_id;
-        this.callSid = callSid;
-        DynamoDB.updateCallSid(consult_id, callSid);
+
+        this.dynamoDBClient = new DynamoDB();
+        await this.dynamoDBClient.initialize(consult_id);
+        const patient = await this.dynamoDBClient.getPatient();
+
+        this.infermedicaClient = new Infermedica(patient);
+        const entities = await this.infermedicaClient.parse(purpose);
+
+        // Update DynamoDB and Client with initial values.
+        this.dynamoDBClient.update({ callSid, entities });
+        this.client.update({ symptoms: entities });
         break;
 
       case 'media':
