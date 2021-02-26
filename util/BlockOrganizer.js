@@ -1,9 +1,8 @@
 function normalizeWord(currentWord) {
-  const { startTime, word } = currentWord;
-  const { seconds, nanos } = startTime;
+  const { startTime, endTime, word } = currentWord;
   return {
-    start: seconds * 1000 + nanos / 1000000,
-    end: seconds * 1000 + nanos / 1000000,
+    start: startTime.seconds * 1000 + startTime.nanos / 1000000,
+    end: endTime.seconds * 1000 + endTime.nanos / 1000000,
     text: word.trim() + ' ',
   };
 }
