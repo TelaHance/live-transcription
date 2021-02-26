@@ -23,8 +23,26 @@ async function get(consultId) {
   return unmarshall(data.Items[0]);
 }
 
-async function update(consultId, blocks, symptoms) {
+async function update(consultId, { blocks, symptoms, sentiment }) {
   const { start_time } = await get(consultId);
+
+  const UpdateExpression = ['SET transcript = :t'];
+  const ExpressionAttributeValues = { ':t': blocks };
+
+  if (symptoms) {
+    ExpressionAttributeValues[':symptoms'] = symptoms;
+    UpdateExpression.append(
+      `symptoms = ${
+        isFirstSymptomsUpdate ? 'list_append(symptoms, :symptoms)' : ':symptoms'
+      }`
+    );
+    isFirstSymptomsUpdate = false;
+  }
+
+  if (sentiment) {
+    ExpressionAttributeValues[':sentiment'] = sentiment;
+    UpdateExpression.append(`sentiment = :sentiment`);
+  }
 
   const updateParams = {
     TableName: 'consults',
@@ -32,23 +50,11 @@ async function update(consultId, blocks, symptoms) {
       consult_id: consultId,
       start_time,
     }),
-    UpdateExpression: 'SET transcript = :t',
-    ExpressionAttributeValues: marshall({ ':t': blocks }),
+    ExpressionAttributeValues: marshall(ExpressionAttributeValues),
+    UpdateExpression: UpdateExpression.join(', '),
     ReturnValues: 'UPDATED_NEW',
   };
 
-  if (symptoms) {
-    let updateVal = 'list_append(symptoms, :s)';
-    if (isFirstSymptomsUpdate) {
-      updateVal = ':s';
-      isFirstSymptomsUpdate = false;
-    }
-    updateParams.UpdateExpression += `, symptoms = ${updateVal}`;
-    updateParams.ExpressionAttributeValues = marshall({
-      ':t': blocks,
-      ':s': symptoms,
-    });
-  }
   return dbclient.send(new UpdateItemCommand(updateParams));
 }
 

@@ -2,8 +2,9 @@ const {
   Client,
   DynamoDB,
   Infermedica,
-  SpeechToText,
+  Perspective,
   S3,
+  SpeechToText,
 } = require('./handlers');
 const BlockOrganizer = require('./util/BlockOrganizer');
 
@@ -84,7 +85,10 @@ class TelahanceService {
     if (words.length > 0) {
       data = this.addBlock(block);
       data.symptoms = await Infermedica.parse(this.age, transcript);
-      DynamoDB.update(this.consultId, this.blocks, data.symptoms);
+      DynamoDB.update(this.consultId, {
+        blocks: this.blocks,
+        symptoms: data.symptoms,
+      });
     } else {
       let idx = this.blockOrganizer.getIdx(role);
       if (this.blocks.length > 0) {
@@ -152,7 +156,18 @@ class TelahanceService {
     } catch (err) {
       console.error(
         '[ TelahanceService ] Error while closing tracks',
-        err.message
+        JSON.stringify(err)
+      );
+    }
+
+    // Wait for Perspective API to add sentiment values
+    try {
+      const data = await Perspective.analyzeTranscript(this.blocks);
+      DynamoDB.update(this.consultId, data);
+    } catch (err) {
+      console.error(
+        '[ TelahanceService ] Failed to add sentiment',
+        JSON.stringify(err)
       );
     }
 
