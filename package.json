@@ -28,5 +28,8 @@
     "s3-upload-stream": "^1.0.7",
     "twilio": "^3.57.0",
     "ws": "^7.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^4.2.2"
   }
 }

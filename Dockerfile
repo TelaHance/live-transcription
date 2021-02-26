@@ -2,6 +2,7 @@ FROM node:current-alpine AS build
 
 WORKDIR /srv
 COPY /keys /srv/keys/
+COPY .env /srv/
 COPY package*.json /srv/
 RUN npm ci
 COPY tsconfig.json /srv/

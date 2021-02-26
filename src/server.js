@@ -4,8 +4,8 @@ const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WSServer = require('ws').Server;
-const { SQS } = require('./handlers');
-const TelahanceService = require('./TelahanceService');
+const { SQS } = require('./services');
+const TelahanceService = require('./services/Telahance');
 
 const PORT = 443;
 const CERT = {
