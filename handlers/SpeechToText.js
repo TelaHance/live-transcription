@@ -78,9 +78,9 @@ class SpeechToTextHandler {
   }
 
   async close(maxWaitTime = 20000) {
-    console.log(`[ SpeechToText | ${this.track} ] Starting close`);
+    console.log(`[ SpeechToText | ${this.role} ] Starting close`);
     return new Promise((resolve, reject) => {
-      const errmsg = `[ SpeechToText | ${this.track} ] Failed to close`;
+      const errmsg = `[ SpeechToText | ${this.role} ] Failed to close`;
       const timeout = setTimeout(() => reject(errmsg), maxWaitTime);
 
       const interval = setInterval(() => {
@@ -89,7 +89,7 @@ class SpeechToTextHandler {
           if (this.stream) {
             this.stream.destroy();
           }
-          console.log(`[ SpeechToText | ${this.track} ] Successfully closed`);
+          console.log(`[ SpeechToText | ${this.role} ] Successfully closed`);
           resolve(true);
           return clearInterval(interval);
         }

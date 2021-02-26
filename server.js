@@ -9,21 +9,21 @@ const TelahanceService = require('./TelahanceService');
 
 const PORT = 443;
 const CERT = {
-  key: fs.readFileSync('./keys/privkey.pem'),
-  cert: fs.readFileSync('./keys/cert.pem'),
+  key: fs.readFileSync('./keys/privkey.pem', 'ascii'),
+  cert: fs.readFileSync('./keys/fullchain.pem', 'ascii'),
 };
+
+const service = new TelahanceService();
 
 // Create http server for Twilio call events
 
 const app = express();
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.post('/events', (req, res) => {
-  console.log('[ Server ] Request received for /events: ', req.body);
-  const { to, from, CallStatus, callSid } = req.body;
-  console.log('[ Server ] Call status: ', CallStatus);
-  res.send('Received');
+  service.onCallEvent(req.body);
+  res.status(200).send();
 });
 
 // Main function for application
@@ -52,16 +52,14 @@ async function run() {
   wss.on('connection', (ws) => {
     clearTimeout(timeout);
     console.log('[ Server ] Connected to Twilio Websocket');
-    new TelahanceService(ws, connectionId);
+    service.connect(ws, connectionId);
     ws.on('close', () => {
       console.log('[ Server ] Disconnected from Twilio Websocket');
       wss.close();
     });
   });
 
-  server.listen(PORT, () =>
-    console.log(`[ Server ] https/ws server listening on ${PORT}`)
-  );
+  server.listen(PORT, () => console.log(`[ Server ] Listening on ${PORT}...`));
 }
 
 run();

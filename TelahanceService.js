@@ -17,17 +17,30 @@ function getRole(track) {
 }
 
 class TelahanceService {
-  constructor(connection, connectionId) {
+  constructor() {
     this.trackHandlers = {};
     this.blocks = [];
     this.currTrack = '';
     this.isUpdating = false;
     this.blockOrganizer = new BlockOrganizer();
+  }
+
+  connect(connection, connectionId) {
     this.client = new Client(connectionId);
     connection.on('message', this.onMessage.bind(this));
-    connection.on('close', () =>
-      console.log('[ TelahanceService ] Connection received close event')
-    );
+  }
+
+  onCallEvent(callEvent) {
+    const { CallStatus, RecordingUrl, RecordingDuration } = callEvent;
+    console.log(`[ TelahanceService ] Call ${CallStatus}`);
+    if (CallStatus === 'in-progress') this.callInProgress = true;
+    else if (CallStatus === 'completed') {
+      this.recordingUrl = `${RecordingUrl}.mp3`;
+      this.recordingDuration = RecordingDuration;
+      console.log(
+        `[ TelahanceService ] Recorded for ${RecordingDuration} seconds.`
+      );
+    }
   }
 
   getBlocksInfo() {
@@ -84,13 +97,7 @@ class TelahanceService {
   }
 
   onMessage(message) {
-    if (message.type !== 'utf8') {
-      console.log(
-        `[ TelahanceService ] ${message.type} message received (not supported)`
-      );
-      return;
-    }
-    const { event, start, media } = JSON.parse(message.utf8Data);
+    const { event, start, media } = JSON.parse(message);
 
     switch (event) {
       case 'start':
@@ -108,6 +115,8 @@ class TelahanceService {
       case 'media':
         const { track, payload } = media;
         const role = getRole(track);
+        if (!this.callInProgress) break; // Wait for call to be answered before starting transcription service
+
         if (!this.trackHandlers[role]) {
           this.trackHandlers[role] = new SpeechToText(
             role,
@@ -116,15 +125,13 @@ class TelahanceService {
           this.blockOrganizer.newQueue(role);
         }
         this.trackHandlers[role].send(payload);
+
         break;
 
       case 'stop':
         console.log(`[ TelahanceService ] Call Ended`);
         this.close();
         break;
-
-      default:
-        console.log('[ TelahanceService ] Event unhandled: ', event);
     }
   }
 

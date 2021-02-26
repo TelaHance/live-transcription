@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { S3 } = require('aws-sdk');
 const S3UploadStream = require('s3-upload-stream');
-const { Twilio } = require('./');
+const Twilio = require('./Twilio');
 
 function getUploadPath(recording) {
   const recordingDate = new Date(recording.dateCreated);
