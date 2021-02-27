@@ -4,8 +4,9 @@ const { INFERMEDICA_APP_ID, INFERMEDICA_APP_KEY } = process.env;
 
 class Infermedica {
   constructor({ age, sex }) {
-    this.age = age ?? 30;
+    this.age = Number(age) ?? 30;
     this.sex = sex;
+    this.context = [];
   }
 
   async parse(text) {
@@ -20,11 +21,20 @@ class Infermedica {
         age: { value: this.age },
         sex: this.sex,
         text: text,
+        concept_types: ['condition', 'risk_factor', 'symptom'],
+        context: this.context,
       }),
     });
-    const data = await response.json();
-    console.log('[ Infermedica ]', JSON.stringify(data));
-    return data.mentions;
+    const { mentions } = await response.json();
+    console.log('[ Infermedica ]', JSON.stringify(mentions));
+
+    const symptoms = mentions.filter(({ type }) => type === 'symptom');
+    // Use the last mentioned symptom as the context for best accuracy
+    if (symptoms.length > 0) {
+      this.context = [symptoms[symptoms.length - 1]];
+    }
+
+    return mentions;
   }
 }
 

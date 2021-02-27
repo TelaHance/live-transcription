@@ -25,6 +25,7 @@ async function getConsult(consultId) {
 class DynamoDB {
   async initialize(consultId) {
     this.consult = await getConsult(consultId);
+    this.isFirstEntityUpdate = true;
   }
 
   async getPatient() {
@@ -55,7 +56,12 @@ class DynamoDB {
 
     if (entities) {
       ExpressionAttributeValues[':e'] = entities;
-      UpdateExpression.push('symptoms = list_append(symptoms, :e)}');
+      if (this.isFirstEntityUpdate) {
+        UpdateExpression.push('symptoms = :e');
+        this.isFirstEntityUpdate = false;
+      } else {
+        UpdateExpression.push('symptoms = list_append(symptoms, :e)');
+      }
     }
 
     if (sentiment) {
@@ -63,15 +69,15 @@ class DynamoDB {
       UpdateExpression.push(`sentiment = :s`);
     }
 
-    const updateParams = {
-      TableName: 'consults',
-      Key: marshall({ consult_id, start_time }),
-      ExpressionAttributeValues: marshall(ExpressionAttributeValues),
-      UpdateExpression: `SET ${UpdateExpression.join(', ')}`,
-      ReturnValues: 'UPDATED_NEW',
-    };
-
-    return dbclient.send(new UpdateItemCommand(updateParams));
+    return dbclient.send(
+      new UpdateItemCommand({
+        TableName: 'consults',
+        Key: marshall({ consult_id, start_time }),
+        ExpressionAttributeValues: marshall(ExpressionAttributeValues),
+        UpdateExpression: `SET ${UpdateExpression.join(', ')}`,
+        ReturnValues: 'UPDATED_NEW',
+      })
+    );
   }
 }
 

@@ -85,7 +85,7 @@ class TelahanceService {
     if (words.length > 0) {
       data = this.addBlock(block);
       data.symptoms = await this.infermedicaClient.parse(transcript);
-      this.dynamoDBClient.update({
+      this.dynamoDBClient.updateConsult({
         blocks: this.blocks,
         entities: data.symptoms,
       });
@@ -126,7 +126,7 @@ class TelahanceService {
         const entities = await this.infermedicaClient.parse(purpose);
 
         // Update DynamoDB and Client with initial values.
-        this.dynamoDBClient.update({ callSid, entities });
+        this.dynamoDBClient.updateConsult({ callSid, entities });
         this.client.update({ symptoms: entities });
         break;
 
@@ -171,7 +171,7 @@ class TelahanceService {
     // Wait for Perspective API to add sentiment values
     try {
       const data = await Perspective.analyzeTranscript(this.blocks);
-      DynamoDB.update(this.consultId, data);
+      this.dynamoDBClient.updateConsult(data);
     } catch (err) {
       console.error(
         '[ TelahanceService ] Failed to add sentiment',
