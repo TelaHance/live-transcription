@@ -14,7 +14,7 @@ const request = {
   interimResults: true,
 };
 
-class SpeechToTextHandler {
+class SpeechToText {
   constructor(role, cb) {
     this.role = role;
     this.cb = cb;
@@ -98,4 +98,4 @@ class SpeechToTextHandler {
   }
 }
 
-module.exports = SpeechToTextHandler;
+module.exports = SpeechToText;

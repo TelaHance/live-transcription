@@ -5,8 +5,8 @@ const {
   Perspective,
   S3,
   SpeechToText,
-} = require('./src/handlers');
-const BlockOrganizer = require('./src/util/BlockOrganizer');
+} = require('./services');
+const BlockOrganizer = require('./util/BlockOrganizer');
 
 function getRole(track) {
   return (

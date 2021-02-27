@@ -1,11 +1,11 @@
-require('dotenv').load();
+require('dotenv').config();
 const fs = require('fs');
 const https = require('https');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WSServer = require('ws').Server;
 const { SQS } = require('./services');
-const TelahanceService = require('./services/Telahance');
+const Telahance = require('./Telahance');
 
 const PORT = 443;
 const CERT = {
@@ -13,7 +13,7 @@ const CERT = {
   cert: fs.readFileSync('./keys/fullchain.pem', 'ascii'),
 };
 
-const service = new TelahanceService();
+const service = new Telahance();
 
 // Create http server for Twilio call events
 
