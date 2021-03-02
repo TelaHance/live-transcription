@@ -35,19 +35,12 @@ class TelahanceService {
     connection.on('message', this.onMessage.bind(this));
   }
 
-  onCallEvent(callEvent) {
-    const {
-      CallStatus,
-      RecordingSid,
-      RecordingUrl,
-      RecordingDuration,
-    } = callEvent;
+  onCallEvent({ CallStatus, RecordingSid, RecordingUrl, RecordingDuration }) {
+    CallStatus = CallStatus.toLowerCase();
     console.log(`[ TelahanceService ] Call ${CallStatus}`);
-    if (CallStatus === 'in-progress') {
-      this.client.update({ status: 'receiving' });
-      this.callInProgress = true;
-    } else if (CallStatus === 'completed') {
-      this.client.update({ status: 'completed' });
+    this.client.update({ status: CallStatus });
+    if (CallStatus === 'in-progress') this.callInProgress = true;
+    else if (CallStatus === 'completed') {
       this.recordingSid = RecordingSid;
       this.recordingUrl = `${RecordingUrl}.mp3`;
       this.recordingDuration = RecordingDuration;
