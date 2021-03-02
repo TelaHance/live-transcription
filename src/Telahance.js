@@ -28,7 +28,7 @@ class TelahanceService {
   }
 
   sendReady() {
-    this.client.update({ ready: true });
+    this.client.update({ status: 'ready' });
   }
 
   connect(connection) {
@@ -43,8 +43,11 @@ class TelahanceService {
       RecordingDuration,
     } = callEvent;
     console.log(`[ TelahanceService ] Call ${CallStatus}`);
-    if (CallStatus === 'in-progress') this.callInProgress = true;
-    else if (CallStatus === 'completed') {
+    if (CallStatus === 'in-progress') {
+      this.client.update({ status: 'receiving' });
+      this.callInProgress = true;
+    } else if (CallStatus === 'completed') {
+      this.client.update({ status: 'completed' });
       this.recordingSid = RecordingSid;
       this.recordingUrl = `${RecordingUrl}.mp3`;
       this.recordingDuration = RecordingDuration;
