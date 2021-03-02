@@ -36,7 +36,6 @@ class TelahanceService {
   }
 
   onCallEvent({ CallStatus, RecordingSid, RecordingUrl, RecordingDuration }) {
-    CallStatus = CallStatus.toLowerCase();
     console.log(`[ TelahanceService ] Call ${CallStatus}`);
     this.client.update({ status: CallStatus });
     if (CallStatus === 'in-progress') this.callInProgress = true;
@@ -110,7 +109,6 @@ class TelahanceService {
 
     switch (event) {
       case 'start':
-        console.log(`[ TelahanceService ] Call Started`);
         const {
           callSid,
           customParameters: { consult_id },
@@ -147,7 +145,6 @@ class TelahanceService {
         break;
 
       case 'stop':
-        console.log(`[ TelahanceService ] Call Ended`);
         this.close();
         break;
     }
