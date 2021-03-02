@@ -25,7 +25,6 @@ async function getConsult(consultId) {
 class DynamoDB {
   async initialize(consultId) {
     this.consult = await getConsult(consultId);
-    this.isFirstEntityUpdate = true;
   }
 
   async getPatient() {
@@ -56,12 +55,7 @@ class DynamoDB {
 
     if (entities) {
       ExpressionAttributeValues[':e'] = entities;
-      if (this.isFirstEntityUpdate) {
-        UpdateExpression.push('symptoms = :e');
-        this.isFirstEntityUpdate = false;
-      } else {
-        UpdateExpression.push('symptoms = list_append(symptoms, :e)');
-      }
+      UpdateExpression.push('symptoms = list_append(symptoms, :e)');
     }
 
     if (sentiment) {
