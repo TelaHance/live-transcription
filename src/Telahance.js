@@ -87,10 +87,10 @@ class TelahanceService {
     let data;
     if (words.length > 0) {
       data = this.addBlock(block);
-      data.symptoms = await this.infermedicaClient.parse(transcript);
+      data.entities = await this.infermedicaClient.parse(transcript);
       this.dynamoDBClient.updateConsult({
         blocks: this.blocks,
-        entities: data.symptoms,
+        entities: data.entities,
       });
     } else {
       let idx = this.blockOrganizer.getIdx(role);
