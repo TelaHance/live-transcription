@@ -18,16 +18,20 @@ function getRole(track) {
 }
 
 class TelahanceService {
-  constructor() {
+  constructor(connectionId) {
     this.trackHandlers = {};
     this.blocks = [];
     this.currTrack = '';
-    this.blockOrganizer = new BlockOrganizer();
     this.isUpdating = false;
+    this.blockOrganizer = new BlockOrganizer();
+    this.client = new Client(connectionId);
   }
 
-  connect(connection, connectionId) {
-    this.client = new Client(connectionId);
+  sendReady() {
+    this.client.update({ ready: true });
+  }
+
+  connect(connection) {
     connection.on('message', this.onMessage.bind(this));
   }
 

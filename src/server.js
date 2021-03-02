@@ -13,23 +13,22 @@ const CERT = {
   cert: fs.readFileSync('./keys/fullchain.pem', 'ascii'),
 };
 
-const service = new Telahance();
-
 // Create http server for Twilio call events
 
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.post('/events', (req, res) => {
-  service.onCallEvent(req.body);
-  res.status(200).send();
-});
-
 // Main function for application
 
 async function run() {
   const connectionId = await SQS.getConnectionId();
+
+  const service = new Telahance(connectionId);
+  app.post('/events', (req, res) => {
+    service.onCallEvent(req.body);
+    res.status(200).send();
+  });
 
   const server = https.createServer(CERT);
   const wss = new WSServer({ server });
@@ -52,13 +51,15 @@ async function run() {
   wss.on('connection', (ws) => {
     clearTimeout(timeout);
     console.log('[ Server ] Connected to Twilio Websocket');
-    service.connect(ws, connectionId);
+    service.connect(ws);
     ws.on('close', () => {
       console.log('[ Server ] Disconnected from Twilio Websocket');
       wss.close();
     });
   });
 
+  console.log('[ Server ] Telling client server has started');
+  service.sendReady();
   server.listen(PORT, () => console.log(`[ Server ] Listening on ${PORT}...`));
 }
 
