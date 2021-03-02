@@ -28,9 +28,9 @@ class Infermedica {
       body: reqBody,
     });
 
-    const response = await response.json();
-    const { mentions } = response;
-    console.log('[ Infermedica ] Response: ', JSON.stringify(response));
+    const responseObj = await response.json();
+    const { mentions } = responseObj;
+    console.log('[ Infermedica ] Response: ', JSON.stringify(responseObj));
 
     const symptoms = mentions?.filter(({ type }) => type === 'symptom') ?? [];
     // Use the last mentioned symptom as the context for best accuracy
