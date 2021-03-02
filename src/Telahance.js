@@ -123,13 +123,6 @@ class TelahanceService {
 
         const patient = await this.dynamoDBClient.getPatient();
         this.infermedicaClient = new Infermedica(patient);
-
-        // const { purpose } = this.dynamoDBClient.consult;
-        // const entities = await this.infermedicaClient.parse(purpose);
-
-        // // Update DynamoDB and Client with initial values.
-        // this.dynamoDBClient.updateConsult({ callSid, entities });
-        // this.client.update({ symptoms: entities });
         break;
 
       case 'media':
