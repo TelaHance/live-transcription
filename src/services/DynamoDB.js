@@ -24,7 +24,6 @@ async function getConsult(consultId) {
 
 class DynamoDB {
   async initialize(consultId) {
-    this.condultId = consultId;
     this.consult = await getConsult(consultId);
   }
 
@@ -54,15 +53,13 @@ class DynamoDB {
       UpdateExpression.push('call_sid = :c');
     }
 
-    if (entities) {
-      this.consult = await getConsult(this.consultId);
+    if (entities && entities.length > 0) {
+      this.consult = await getConsult(consult_id);
       const newEntities = entities.filter((newEntity) =>
         this.consult.symptoms.every((entity) => entity.id !== newEntity.id)
       );
-      ExpressionAttributeValues[':e'] = [
-        ...this.consult.symptoms,
-        ...newEntities,
-      ];
+      const updatedEntities = [...this.consult.symptoms, ...newEntities];
+      ExpressionAttributeValues[':e'] = updatedEntities;
       UpdateExpression.push('symptoms = :e');
     }
 
@@ -70,6 +67,15 @@ class DynamoDB {
       ExpressionAttributeValues[':s'] = sentiment;
       UpdateExpression.push(`sentiment = :s`);
     }
+
+    console.log(
+      '[ DynamoDB ] Received: ',
+      JSON.stringify({ blocks, callSid, entities, sentiment })
+    );
+    console.log(
+      '[ DynamoDB ] ExpressionAttributeValues: ',
+      JSON.stringify(ExpressionAttributeValues)
+    );
 
     return dbclient.send(
       new UpdateItemCommand({
