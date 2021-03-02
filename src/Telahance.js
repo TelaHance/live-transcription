@@ -31,6 +31,10 @@ class TelahanceService {
     this.client.update({ status: 'ready' });
   }
 
+  sendClose() {
+    this.client.update({ status: 'closed' });
+  }
+
   connect(connection) {
     connection.on('message', this.onMessage.bind(this));
   }

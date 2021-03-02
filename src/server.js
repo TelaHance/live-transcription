@@ -45,6 +45,7 @@ async function run() {
       `[ Server ] Probable cause: Call not started by client within ${waitTime} minutes after viewing appointments page`
     );
     console.log(`[ Server ] Closing server`);
+    service.sendClose();
     wss.close();
   }, waitTime * 60000);
 
@@ -54,6 +55,7 @@ async function run() {
     service.connect(ws);
     ws.on('close', () => {
       console.log('[ Server ] Disconnected from Twilio Websocket');
+      service.sendClose();
       wss.close();
     });
   });
