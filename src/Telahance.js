@@ -87,10 +87,10 @@ class TelahanceService {
     let data;
     if (words.length > 0) {
       data = this.addBlock(block);
-      data.entities = await this.infermedicaClient.parse(transcript);
+      data.symptoms = await this.infermedicaClient.parse(transcript);
       this.dynamoDBClient.updateConsult({
         blocks: this.blocks,
-        entities: data.entities,
+        entities: data.symptoms,
       });
     } else {
       let idx = this.blockOrganizer.getIdx(role);
@@ -119,7 +119,7 @@ class TelahanceService {
         } = start;
 
         this.dynamoDBClient = new DynamoDB();
-        await this.dynamoDBClient.initialize(consult_id);
+        await this.dynamoDBClient.initialize(consult_id, callSid);
 
         const patient = await this.dynamoDBClient.getPatient();
         this.infermedicaClient = new Infermedica(patient);

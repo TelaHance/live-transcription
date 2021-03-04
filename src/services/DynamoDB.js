@@ -23,8 +23,9 @@ async function getConsult(consultId) {
 }
 
 class DynamoDB {
-  async initialize(consultId) {
+  async initialize(consultId, callSid) {
     this.consult = await getConsult(consultId);
+    this.updateConsult({ callSid });
   }
 
   async getPatient() {
@@ -55,11 +56,11 @@ class DynamoDB {
 
     if (entities && entities.length > 0) {
       this.consult = await getConsult(consult_id);
-      const newEntities = entities.filter((newEntity) =>
-        this.consult.symptoms.every((entity) => entity.id !== newEntity.id)
+      const symptoms = this.consult.symptoms ?? [];
+      const oldTerms = symptoms.filter((prevTerm) =>
+        entities.every((entity) => prevTerm.id !== entity.id)
       );
-      const updatedEntities = [...this.consult.symptoms, ...newEntities];
-      ExpressionAttributeValues[':e'] = updatedEntities;
+      ExpressionAttributeValues[':e'] = [...oldTerms, ...entities];
       UpdateExpression.push('symptoms = :e');
     }
 
