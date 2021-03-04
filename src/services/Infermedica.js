@@ -35,7 +35,7 @@ class Infermedica {
     const symptoms = mentions?.filter(({ type }) => type === 'symptom') ?? [];
     // Use the last mentioned symptom as the context for best accuracy
     if (symptoms.length > 0) {
-      this.context = [symptoms[symptoms.length - 1]];
+      this.context = [symptoms[symptoms.length - 1].id];
     }
 
     return mentions;
