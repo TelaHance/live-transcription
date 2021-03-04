@@ -7,19 +7,19 @@ function normalizeWord(currentWord) {
   };
 }
 
+function transcriptToWords(transcript) {
+  return transcript.split(' ').map((word) => {
+    return {
+      text: word + ' ',
+    };
+  });
+}
+
 class BlockOrganizer {
   constructor() {
     this.counter = -1;
     this.prevRole = '';
     this.roleQueues = {};
-  }
-
-  transcriptToWords(transcript) {
-    return transcript.split(' ').map((word) => {
-      return {
-        text: word + ' ',
-      };
-    });
   }
 
   format(role, transcript, words) {
@@ -34,7 +34,7 @@ class BlockOrganizer {
         this.prevRole = role;
       }
       block.fullText = transcript;
-      block.children = this.transcriptToWords(transcript);
+      block.children = transcriptToWords(transcript);
     } else {
       words = words.map(normalizeWord);
       block.start = words[0].start;

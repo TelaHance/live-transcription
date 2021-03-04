@@ -81,19 +81,22 @@ class TelahanceService {
     return { idx, block };
   }
 
-  async onTranscription(role, transcript, words) {
+  onTranscription(role, transcript, words) {
     this.isUpdating = true;
     const block = this.blockOrganizer.format(role, transcript, words);
-    let data;
     if (words.length > 0) {
-      data = this.addBlock(block);
-      data.block.children = this.blockOrganizer.transcriptToWords(
-        data.block.fullText
-      );
-      data.symptoms = await this.infermedicaClient.parse(transcript);
-      this.dynamoDBClient.updateConsult({
-        blocks: this.blocks,
-        entities: data.symptoms,
+      // Parse final block data and strip away.
+      const data = this.addBlock(block);
+      this.dynamoDBClient.updateConsult({ blocks: this.blocks });
+
+      // Strip away all but text for client updates.
+      data.block.children = data.block.children.map(({ text }) => ({ text }));
+      this.client.update(data);
+
+      // Handle Infermedica separately from transcript data.
+      this.infermedicaClient.parse(transcript).then((entities) => {
+        this.dynamoDBClient.updateConsult({ entities });
+        this.client.update({ symptoms: entities });
       });
     } else {
       let idx = this.blockOrganizer.getIdx(role);
@@ -105,9 +108,8 @@ class TelahanceService {
           block.children = lastBlock.children.concat(block.children);
         }
       }
-      data = { idx, block };
+      this.client.update({ idx, block });
     }
-    this.client.update(data);
     this.isUpdating = false;
   }
 
