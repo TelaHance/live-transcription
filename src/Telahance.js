@@ -87,6 +87,9 @@ class TelahanceService {
     let data;
     if (words.length > 0) {
       data = this.addBlock(block);
+      data.block.children = this.blockOrganizer.transcriptToWords(
+        data.block.fullText
+      );
       data.symptoms = await this.infermedicaClient.parse(transcript);
       this.dynamoDBClient.updateConsult({
         blocks: this.blocks,
