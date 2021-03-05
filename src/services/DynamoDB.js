@@ -28,6 +28,16 @@ class DynamoDB {
     this.updateConsult({ callSid });
   }
 
+  async getDoctor() {
+    const data = await dbclient.send(
+      new GetItemCommand({
+        TableName: 'users',
+        Key: marshall({ user_id: this.consult.doctor_id }),
+      })
+    );
+    return unmarshall(data.Item);
+  }
+
   async getPatient() {
     const data = await dbclient.send(
       new GetItemCommand({

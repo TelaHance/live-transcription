@@ -1,28 +1,34 @@
 const Speech = require('@google-cloud/speech');
 const speech = new Speech.SpeechClient();
 
-const request = {
-  config: {
-    encoding: 'MULAW',
-    sampleRateHertz: 8000,
-    languageCode: 'en-US',
-    model: 'phone_call',
-    audioChannelCount: 2,
-    enableSeparateRecognitionPerChannel: true,
-    enableWordTimeOffsets: true,
-    enableAutomaticPunctuation: true,
-  },
-  interimResults: true,
-};
+const defaultVocab = ['TelaHance'];
 
 class SpeechToText {
-  constructor(role, cb) {
+  constructor(role, cb, vocab) {
     this.role = role;
     this.cb = cb;
     this.stream = null;
     this.streamCreatedAt = null;
     this.readyToClose = true;
     this.prevTranscript = '';
+    this.request = {
+      config: {
+        encoding: 'MULAW',
+        sampleRateHertz: 8000,
+        languageCode: 'en-US',
+        model: 'phone_call',
+        audioChannelCount: 2,
+        enableSeparateRecognitionPerChannel: true,
+        enableWordTimeOffsets: true,
+        enableAutomaticPunctuation: true,
+        speechContexts: [
+          {
+            phrases: defaultVocab.concat(vocab),
+          },
+        ],
+      },
+      interimResults: true,
+    };
   }
 
   send(payload) {
@@ -47,7 +53,7 @@ class SpeechToText {
       }
       this.streamCreatedAt = new Date();
       this.stream = speech
-        .streamingRecognize(request)
+        .streamingRecognize(this.request)
         .on('error', (err) => {
           // Filter out error code 11
           if (err.code !== 11) {

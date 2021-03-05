@@ -127,7 +127,15 @@ class TelahanceService {
         await this.dynamoDBClient.initialize(consult_id, callSid);
 
         const patient = await this.dynamoDBClient.getPatient();
+        const doctor = await this.dynamoDBClient.getDoctor();
         this.infermedicaClient = new Infermedica(patient);
+
+        this.vocab = [
+          doctor.given_name,
+          doctor.full_name,
+          patient.given_name,
+          patient.full_name,
+        ];
         break;
 
       case 'media':
@@ -138,7 +146,8 @@ class TelahanceService {
         if (!this.trackHandlers[role]) {
           this.trackHandlers[role] = new SpeechToText(
             role,
-            this.onTranscription.bind(this)
+            this.onTranscription.bind(this),
+            this.vocab
           );
           this.blockOrganizer.newQueue(role);
         }
