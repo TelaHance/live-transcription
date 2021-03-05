@@ -36,7 +36,7 @@ class TelahanceService {
   }
 
   connect(connection) {
-    connection.on('message', this.onMessage.bind(this));
+    connection.on('message', this.onMessage);
   }
 
   onCallEvent({ CallStatus, RecordingSid, RecordingUrl, RecordingDuration }) {
@@ -81,9 +81,9 @@ class TelahanceService {
     return { idx, block };
   }
 
-  onTranscription(role, transcript, words) {
+  onTranscription = (role, transcript, words, offset) => {
     this.isUpdating = true;
-    const block = this.blockOrganizer.format(role, transcript, words);
+    const block = this.blockOrganizer.format(role, transcript, words, offset);
     if (words.length > 0) {
       // Parse final block data and strip away.
       const data = JSON.parse(JSON.stringify(this.addBlock(block)));
@@ -111,9 +111,9 @@ class TelahanceService {
       this.client.update({ idx, block });
     }
     this.isUpdating = false;
-  }
+  };
 
-  async onMessage(message) {
+  onMessage = async (message) => {
     const { event, start, media } = JSON.parse(message);
 
     switch (event) {
@@ -146,7 +146,7 @@ class TelahanceService {
         if (!this.trackHandlers[role]) {
           this.trackHandlers[role] = new SpeechToText(
             role,
-            this.onTranscription.bind(this),
+            this.onTranscription,
             this.vocab
           );
           this.blockOrganizer.newQueue(role);
@@ -159,7 +159,7 @@ class TelahanceService {
         this.close();
         break;
     }
-  }
+  };
 
   async close(maxWaitTime = 5000) {
     // Wait for Google Speech to Text to finish transcribing.

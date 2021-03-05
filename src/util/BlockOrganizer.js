@@ -1,8 +1,8 @@
-function normalizeWord(currentWord) {
+function normalizeWord(currentWord, offset) {
   const { startTime, endTime, word } = currentWord;
   return {
-    start: startTime.seconds * 1000 + startTime.nanos / 1000000,
-    end: endTime.seconds * 1000 + endTime.nanos / 1000000,
+    start: startTime.seconds * 1000 + startTime.nanos / 1000000 + offset,
+    end: endTime.seconds * 1000 + endTime.nanos / 1000000 + offset,
     text: word.trim() + ' ',
   };
 }
@@ -22,7 +22,7 @@ class BlockOrganizer {
     this.roleQueues = {};
   }
 
-  format(role, transcript, words) {
+  format(role, transcript, words, offset) {
     const block = {
       type: 'message',
       speaker: role,
@@ -36,7 +36,7 @@ class BlockOrganizer {
       block.fullText = transcript;
       block.children = transcriptToWords(transcript);
     } else {
-      words = words.map(normalizeWord);
+      words = words.map((word) => normalizeWord(word, offset));
       block.start = words[0].start;
       block.fullText = transcript + ' ';
       block.children = words;
