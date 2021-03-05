@@ -6,6 +6,7 @@ const request = {
     encoding: 'MULAW',
     sampleRateHertz: 8000,
     languageCode: 'en-US',
+    model: 'phone_call',
     audioChannelCount: 2,
     enableSeparateRecognitionPerChannel: true,
     enableWordTimeOffsets: true,
@@ -41,6 +42,7 @@ class SpeechToText {
   getStream() {
     if (this.newStreamRequired()) {
       if (this.stream) {
+        this.stream.end();
         this.stream.destroy();
       }
       this.streamCreatedAt = new Date();
@@ -77,8 +79,9 @@ class SpeechToText {
     return this.stream;
   }
 
-  async close(maxWaitTime = 20000) {
+  async close(maxWaitTime = 5000) {
     console.log(`[ SpeechToText | ${this.role} ] Starting close`);
+    this.stream.end();
     return new Promise((resolve, reject) => {
       const errmsg = `[ SpeechToText | ${this.role} ] Failed to close`;
       const timeout = setTimeout(() => reject(errmsg), maxWaitTime);
