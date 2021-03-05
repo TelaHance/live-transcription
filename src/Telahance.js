@@ -86,7 +86,7 @@ class TelahanceService {
     const block = this.blockOrganizer.format(role, transcript, words);
     if (words.length > 0) {
       // Parse final block data and strip away.
-      const data = this.addBlock(block);
+      const data = JSON.parse(JSON.stringify(this.addBlock(block)));
       this.dynamoDBClient.updateConsult({ blocks: this.blocks });
 
       // Strip away all but text for client updates.
