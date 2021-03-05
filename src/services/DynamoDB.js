@@ -78,7 +78,7 @@ class DynamoDB {
       JSON.stringify(ExpressionAttributeValues)
     );
 
-    if (ExpressionAttributeValues.length > 0) {
+    if (Object.keys(ExpressionAttributeValues).length > 0) {
       return dbclient.send(
         new UpdateItemCommand({
           TableName: 'consults',
