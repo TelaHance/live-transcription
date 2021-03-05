@@ -132,9 +132,9 @@ class TelahanceService {
 
         this.vocab = [
           doctor.given_name,
-          doctor.full_name,
+          doctor.family_name,
           patient.given_name,
-          patient.full_name,
+          patient.family_name,
         ];
         break;
 

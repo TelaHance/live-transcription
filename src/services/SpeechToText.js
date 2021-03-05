@@ -11,6 +11,10 @@ class SpeechToText {
     this.streamCreatedAt = null;
     this.readyToClose = true;
     this.prevTranscript = '';
+    console.log(
+      `[ SpeechToText | ${role} ] Using custom vocabulary: `,
+      JSON.stringify(vocab)
+    );
     this.request = {
       config: {
         encoding: 'MULAW',
