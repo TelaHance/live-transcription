@@ -78,15 +78,17 @@ class DynamoDB {
       JSON.stringify(ExpressionAttributeValues)
     );
 
-    return dbclient.send(
-      new UpdateItemCommand({
-        TableName: 'consults',
-        Key: marshall({ consult_id, start_time }),
-        ExpressionAttributeValues: marshall(ExpressionAttributeValues),
-        UpdateExpression: `SET ${UpdateExpression.join(', ')}`,
-        ReturnValues: 'UPDATED_NEW',
-      })
-    );
+    if (ExpressionAttributeValues.length > 0) {
+      return dbclient.send(
+        new UpdateItemCommand({
+          TableName: 'consults',
+          Key: marshall({ consult_id, start_time }),
+          ExpressionAttributeValues: marshall(ExpressionAttributeValues),
+          UpdateExpression: `SET ${UpdateExpression.join(', ')}`,
+          ReturnValues: 'UPDATED_NEW',
+        })
+      );
+    }
   }
 }
 
