@@ -52,7 +52,6 @@ class SpeechToText {
   getStream() {
     if (this.newStreamRequired()) {
       if (this.stream) {
-        this.stream.end();
         this.stream.destroy();
       }
       this.streamCreatedAt = new Date();
