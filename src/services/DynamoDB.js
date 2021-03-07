@@ -48,7 +48,13 @@ class DynamoDB {
     return unmarshall(data.Item);
   }
 
-  async updateConsult({ blocks, callSid, entities, sentiment }) {
+  async updateConsult({
+    blocks,
+    callSid,
+    entities,
+    sentiment,
+    doctor_sentiment,
+  }) {
     const { consult_id, start_time } = this.consult;
 
     const ExpressionAttributeValues = {};
@@ -77,6 +83,11 @@ class DynamoDB {
     if (sentiment) {
       ExpressionAttributeValues[':s'] = sentiment;
       UpdateExpression.push(`sentiment = :s`);
+    }
+
+    if (doctor_sentiment) {
+      ExpressionAttributeValues[':ds'] = doctor_sentiment;
+      UpdateExpression.push(`doctor_sentiment = :ds`);
     }
 
     console.log(

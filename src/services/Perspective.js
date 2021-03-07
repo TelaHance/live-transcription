@@ -42,13 +42,6 @@ async function analyzeTranscript(blocks) {
     });
   }
 
-  console.log('[ Perspective ] Starting overall sentiment analysis.');
-  const sentiment = await analyze({
-    comment: { text: blocks.map((message) => message.fullText).join(' ') },
-    ...commonRequest,
-  });
-  console.log('[ Perspective ] Finished overall sentiment analysis.');
-
   async function addMessageSentiment(message) {
     message.sentiment = await analyze({
       comment: { text: message.fullText },
@@ -57,13 +50,40 @@ async function analyzeTranscript(blocks) {
     return message;
   }
 
+  function compileMaxSentiment(blocks) {
+    return blocks
+      .map(({ sentiment }) => sentiment)
+      .reduce((acc, cur) => {
+        Object.entries(cur).forEach(([attribute, score]) => {
+          acc[attribute] = Math.max(acc[attribute] ?? 0, score);
+        });
+        return acc;
+      }, {});
+  }
+
   console.log('[ Perspective ] Starting detailed sentiment analysis.');
   blocks = await Promise.all(
     blocks.map((message) => addMessageSentiment(message))
   );
   console.log('[ Perspective ] Finished detailed sentiment analysis.');
+  console.log(
+    '[ Perspective ] Starting compilation of maximum doctor sentiment.'
+  );
+  const doctor_sentiment = compileMaxSentiment(
+    blocks.filter(({ speaker }) => speaker === 'DOCTOR')
+  );
+  console.log(
+    '[ Perspective ] Finished compilation of maximum doctor sentiment.'
+  );
+  console.log(
+    '[ Perspective ] Starting compilation of overall maximum sentiment.'
+  );
+  const sentiment = compileMaxSentiment(blocks);
+  console.log(
+    '[ Perspective ] Finished compilation of overall maximum sentiment.'
+  );
 
-  return { blocks, sentiment };
+  return { blocks, sentiment, doctor_sentiment };
 }
 
 module.exports = {
