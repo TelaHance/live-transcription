@@ -44,7 +44,7 @@ class SpeechToText {
       .on('data', this.onData);
 
     // Restart stream when streamingLimit expires
-    setTimeout(this.restartStream, streamingLimit);
+    this.restartTimeout = setTimeout(this.restartStream, streamingLimit);
   };
 
   restartStream = () => {
@@ -94,6 +94,7 @@ class SpeechToText {
             this.stream.destroy();
           }
           console.log(`[ SpeechToText | ${this.role} ] Successfully closed`);
+          clearTimeout(this.restartTimeout);
           resolve(true);
           return clearInterval(interval);
         }
